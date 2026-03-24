@@ -12,6 +12,7 @@ import {
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { validateLoginForm } from "../../utils/authValidation";
 
 const GREEN = "#3F9D86";
 
@@ -23,46 +24,50 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+const handleLogin = async () => {
+  const errors = validateLoginForm({
+    username,
+    password,
+  });
 
-  const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert("Missing details", "Please enter username and password.");
+  if (Object.keys(errors).length > 0) {
+    const firstError = Object.values(errors)[0];
+    Alert.alert("Validation Error", firstError);
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+      username: username.trim(),
+      password,
+    });
+
+    const token = res?.data?.token;
+    const user = res?.data?.user;
+
+    if (!token) {
+      Alert.alert("Login failed", "Token not received from server.");
       return;
     }
 
-    try {
-      setLoading(true);
+    await AsyncStorage.setItem("token", token);
+    if (user) await AsyncStorage.setItem("user", JSON.stringify(user));
 
-      
-      const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
-        username: username.trim(),
-        password: password,
-      });
-
-      const token = res?.data?.token;
-      const user = res?.data?.user;
-
-      if (!token) {
-        Alert.alert("Login failed", "Token not received from server.");
-        return;
-      }
-
-      await AsyncStorage.setItem("token", token);
-      if (user) await AsyncStorage.setItem("user", JSON.stringify(user));
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "AppTabs" }],
-      });
-    } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        "Invalid username or password (or server not running).";
-      Alert.alert("Login Failed", msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "AppTabs" }],
+    });
+  } catch (error) {
+    const msg =
+      error?.response?.data?.message ||
+      "Invalid username or password (or server not running).";
+    Alert.alert("Login Failed", msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <ImageBackground

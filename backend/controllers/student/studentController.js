@@ -14,6 +14,18 @@ const generateStudentId = async () => {
   return `S${String(nextNumber).padStart(3, "0")}`;
 };
 
+const { isValidObjectId } = require("mongoose");
+
+const isValidSriLankanPhone = (phone) => {
+  const cleaned = String(phone || "").replace(/\s+/g, "");
+  return /^(?:\+94|94|0)?7\d{8}$/.test(cleaned);
+};
+
+const isValidSriLankanNIC = (nic) => {
+  const cleaned = String(nic || "").trim().toUpperCase();
+  return /^\d{9}[VX]$/.test(cleaned) || /^\d{12}$/.test(cleaned);
+};
+
 /*  Register Student */
 const createStudent = async (req, res) => {
   try {
@@ -43,6 +55,37 @@ const createStudent = async (req, res) => {
         message: "NIC already exists",
       });
     }
+    if (!fullName || fullName.trim().length < 3) {
+  return res.status(400).json({ message: "Full name is invalid" });
+}
+
+if (!isValidSriLankanNIC(nic)) {
+  return res.status(400).json({ message: "Invalid NIC format" });
+}
+
+if (!isValidSriLankanPhone(phone)) {
+  return res.status(400).json({ message: "Invalid student phone number" });
+}
+
+if (whatsapp && !isValidSriLankanPhone(whatsapp)) {
+  return res.status(400).json({ message: "Invalid WhatsApp number" });
+}
+
+if (!address || address.trim().length < 5) {
+  return res.status(400).json({ message: "Address is invalid" });
+}
+
+if (!parentName || parentName.trim().length < 3) {
+  return res.status(400).json({ message: "Parent name is invalid" });
+}
+
+if (!isValidSriLankanPhone(parentPhone)) {
+  return res.status(400).json({ message: "Invalid parent phone number" });
+}
+
+if (leavingDate && admissionDate && new Date(leavingDate) < new Date(admissionDate)) {
+  return res.status(400).json({ message: "Leaving date cannot be before admission date" });
+}
 
     const studentId = await generateStudentId();
 
@@ -93,14 +136,83 @@ exports.getStudentById = async (req, res) => {
   }
 };
 
-/*  Update Student */
+/* Update Student */
 exports.updateStudent = async (req, res) => {
+  const {
+    fullName,
+    nic,
+    phone,
+    whatsapp,
+    address,
+    university,
+    parentName,
+    parentPhone,
+    status,
+    admissionDate,
+    leavingDate,
+  } = req.body;
+
+  if (!fullName || fullName.trim().length < 3) {
+    return res.status(400).json({ message: "Full name is invalid" });
+  }
+
+  if (!isValidSriLankanNIC(nic)) {
+    return res.status(400).json({ message: "Invalid NIC format" });
+  }
+
+  if (!isValidSriLankanPhone(phone)) {
+    return res.status(400).json({ message: "Invalid student phone number" });
+  }
+
+  if (whatsapp && !isValidSriLankanPhone(whatsapp)) {
+    return res.status(400).json({ message: "Invalid WhatsApp number" });
+  }
+
+  if (!address || address.trim().length < 5) {
+    return res.status(400).json({ message: "Address is invalid" });
+  }
+
+  if (!parentName || parentName.trim().length < 3) {
+    return res.status(400).json({ message: "Parent name is invalid" });
+  }
+
+  if (!isValidSriLankanPhone(parentPhone)) {
+    return res.status(400).json({ message: "Invalid parent phone number" });
+  }
+
+  if (
+    leavingDate &&
+    admissionDate &&
+    new Date(leavingDate) < new Date(admissionDate)
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Leaving date cannot be before admission date" });
+  }
+
   try {
     const updated = await Student.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      { new: true }
+      {
+        fullName,
+        nic,
+        phone,
+        whatsapp,
+        address,
+        university,
+        parentName,
+        parentPhone,
+        status,
+        admissionDate,
+        leavingDate,
+      },
+      { new: true, runValidators: true }
     );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(400).json({ message: error.message });

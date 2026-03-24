@@ -12,6 +12,7 @@ import {
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { validateSignupForm } from "../../utils/authValidation";
 
 const GREEN = "#3F9D86";
 
@@ -27,37 +28,45 @@ export default function SignupScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const [errors, setErrors] = useState({});
+  
   const handleSignup = async () => {
+  const validationErrors = validateSignupForm({
+    username,
+    email,
+    password,
+  });
 
-    if (!email || !username || !password) {
-      Alert.alert("Error", "Please fill all fields");
-      return;
-    }
+  setErrors(validationErrors);
 
-    try {
-      setLoading(true);
+  if (Object.keys(validationErrors).length > 0) {
+    return;
+  }
 
-      const res = await axios.post(API_URL, {
-        name: username,   
-        email: email,
-        password: password
-      });
+  try {
+    setLoading(true);
 
-      Alert.alert("Success", "Account created successfully");
+    await axios.post(API_URL, {
+      name: username.trim(),
+      email: email.trim(),
+      password,
+    });
 
-      navigation.navigate("Login");
+    Alert.alert("Success", "Account created successfully");
+    navigation.navigate("Login");
+  } catch (error) {
+    console.log("FULL ERROR:", error);
+    console.log("RESPONSE:", error.response);
+    console.log("DATA:", error.response?.data);
 
-    }catch (error) {
-  console.log("FULL ERROR:", error);
-  console.log("RESPONSE:", error.response);
-  console.log("DATA:", error.response?.data);
-
-  Alert.alert("Signup Failed", "Check console logs");
-}
-
+    Alert.alert(
+      "Signup Failed",
+      error?.response?.data?.message || "Check console logs"
+    );
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   return (
     <ImageBackground
@@ -77,49 +86,90 @@ export default function SignupScreen({ navigation }) {
             Create your account to start managing
           </Text>
 
-          {/* Email */}
-          <View style={styles.inputWrap}>
-            <MaterialIcons name="mail-outline" size={18} color="#9AA0A6" style={styles.leftIcon} />
-            <TextInput
-              placeholder="Email address"
-              placeholderTextColor="#9AA0A6"
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
 
-          {/* Username */}
-          <View style={styles.inputWrap}>
-            <MaterialIcons name="person-outline" size={18} color="#9AA0A6" style={styles.leftIcon} />
-            <TextInput
-              placeholder="Username"
-              placeholderTextColor="#9AA0A6"
-              style={styles.input}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-            />
-          </View>
+        <View style={[styles.inputWrap, errors.email && styles.inputWrapError]}>
+  <MaterialIcons
+    name="mail-outline"
+    size={18}
+    color="#9AA0A6"
+    style={styles.leftIcon}
+  />
+  <TextInput
+    placeholder="Email address"
+    placeholderTextColor="#9AA0A6"
+    style={[styles.input, errors.email && styles.inputError]}
+    value={email}
+    onChangeText={(text) => {
+      setEmail(text);
+      if (errors.email) {
+        setErrors((prev) => ({ ...prev, email: "" }));
+      }
+    }}
+    autoCapitalize="none"
+    keyboardType="email-address"
+  />
+</View>
+{errors.email ? (
+  <Text style={styles.errorText}>{errors.email}</Text>
+) : null}
 
-          {/* Password */}
-          <View style={styles.inputWrap}>
-            <MaterialIcons name="lock-outline" size={18} color="#9AA0A6" style={styles.leftIcon} />
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#9AA0A6"
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!show}
-            />
+          <View style={[styles.inputWrap, errors.username && styles.inputWrapError]}>
+  <MaterialIcons
+    name="person-outline"
+    size={18}
+    color="#9AA0A6"
+    style={styles.leftIcon}
+  />
+  <TextInput
+    placeholder="Username"
+    placeholderTextColor="#9AA0A6"
+    style={[styles.input, errors.username && styles.inputError]}
+    value={username}
+    onChangeText={(text) => {
+      setUsername(text);
+      if (errors.username) {
+        setErrors((prev) => ({ ...prev, username: "" }));
+      }
+    }}
+    autoCapitalize="none"
+  />
+</View>
+{errors.username ? (
+  <Text style={styles.errorText}>{errors.username}</Text>
+) : null}
 
-            <TouchableOpacity onPress={() => setShow(!show)} style={styles.rightIconBtn}>
-              <Ionicons name={show ? "eye-off-outline" : "eye-outline"} size={18} color="#9AA0A6" />
-            </TouchableOpacity>
-          </View>
+          
+          <View style={[styles.inputWrap, errors.password && styles.inputWrapError]}>
+  <MaterialIcons
+    name="lock-outline"
+    size={18}
+    color="#9AA0A6"
+    style={styles.leftIcon}
+  />
+  <TextInput
+    placeholder="Password"
+    placeholderTextColor="#9AA0A6"
+    style={[styles.input, errors.password && styles.inputError]}
+    value={password}
+    onChangeText={(text) => {
+      setPassword(text);
+      if (errors.password) {
+        setErrors((prev) => ({ ...prev, password: "" }));
+      }
+    }}
+    secureTextEntry={!show}
+  />
+  <TouchableOpacity onPress={() => setShow(!show)} style={styles.rightIconBtn}>
+    <Ionicons
+      name={show ? "eye-off-outline" : "eye-outline"}
+      size={18}
+      color="#9AA0A6"
+    />
+  </TouchableOpacity>
+</View>
+{errors.password ? (
+  <Text style={styles.errorText}>{errors.password}</Text>
+) : null}
 
           <TouchableOpacity style={styles.primaryBtn} onPress={handleSignup}>
             {loading ? (
@@ -235,5 +285,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: GREEN,
     fontWeight: "600"
-  }
+  },
+  errorText: {
+  color: "#D64545",
+  fontSize: 12,
+  marginTop: -8,
+  marginBottom: 10,
+  marginLeft: 4,
+},
+
+
+  inputWrapError: {
+  borderColor: "#D64545",
+},
+  
 });

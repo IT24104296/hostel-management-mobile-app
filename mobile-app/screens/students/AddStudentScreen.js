@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import axios from "axios";
+import { validateStudentForm } from "../../utils/studentValidation";
 
 const API_BASE_URL = "http://192.168.1.4:5000"; 
 
@@ -39,6 +40,7 @@ export default function AddStudentScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const insets = useSafeAreaInsets();
+  const [errors, setErrors] = useState({});
 
   const formatDate = (date) => {
     if (!date) return "Select date";
@@ -49,32 +51,32 @@ export default function AddStudentScreen({ navigation }) {
     return `${year}-${month}-${day}`;
   };
 
-  const validate = () => {
-    if (
-      !fullName.trim() ||
-      !nic.trim() ||
-      !phone.trim() ||
-      !address.trim() ||
-      !parentName.trim() ||
-      !parentPhone.trim()
-    ) {
-      Alert.alert("Missing Details", "Please fill all required fields.");
-      return false;
-    }
-
-    if (phone.trim().length < 10) {
-      Alert.alert("Invalid Phone", "Student phone number must be at least 10 digits.");
-      return false;
-    }
-
-    if (parentPhone.trim().length < 10) {
-      Alert.alert("Invalid Phone", "Parent phone number must be at least 10 digits.");
-      return false;
-    }
-
-    return true;
+ const validate = () => {
+  const formData = {
+    fullName,
+    nic,
+    phone,
+    whatsapp,
+    address,
+    university,
+    parentName,
+    parentPhone,
+    status,
+    admissionDate,
+    leavingDate,
   };
 
+  const validationErrors = validateStudentForm(formData);
+  setErrors(validationErrors);
+
+  if (Object.keys(validationErrors).length > 0) {
+    const firstError = Object.values(validationErrors)[0];
+    Alert.alert("Error", firstError);
+    return false;
+  }
+
+  return true;
+};
   const handleSave = async () => {
     if (!validate()) return;
 
@@ -130,176 +132,272 @@ export default function AddStudentScreen({ navigation }) {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Personal information</Text>
 
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                value={fullName}
-                onChangeText={setFullName}
-              />
-            </View>
+         
 
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>NIC</Text>
-              <TextInput
-                style={styles.input}
-                value={nic}
-                onChangeText={setNic}
-                autoCapitalize="characters"
-              />
-            </View>
-          </View>
+  <View style={styles.row}>
+    <View style={[styles.inputGroup, styles.half]}>
+      <Text style={styles.label}>Name</Text>
+      <TextInput
+        style={[styles.input, errors.fullName && styles.inputError]}
+        value={fullName}
+        onChangeText={(text) => {
+          setFullName(text);
+          if (errors.fullName) {
+            setErrors((prev) => ({ ...prev, fullName: "" }));
+          }
+        }}
+      />
+      {errors.fullName ? (
+        <Text style={styles.errorText}>{errors.fullName}</Text>
+      ) : null}
+    </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Address</Text>
-            <TextInput
-              style={styles.input}
-              value={address}
-              onChangeText={setAddress}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Whatsapp Number</Text>
-            <TextInput
-              style={styles.input}
-              value={whatsapp}
-              onChangeText={setWhatsapp}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>University</Text>
-            <TextInput
-              style={styles.input}
-              value={university}
-              onChangeText={setUniversity}
-            />
-          </View>
-        </View>
-
-        {/* Parent Details */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Parent Details</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
-              value={parentName}
-              onChangeText={setParentName}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              value={parentPhone}
-              onChangeText={setParentPhone}
-              keyboardType="phone-pad"
-            />
-          </View>
-        </View>
-
-        {/* Student Status / Dates */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Student Status</Text>
-
-          <View style={styles.inputGroup}>
-  <View style={styles.labelRow}>
-    <Text style={styles.label}>Admission Date</Text>
-
-    {admissionDate && (
-      <TouchableOpacity onPress={() => setAdmissionDate(null)}>
-        <Text style={styles.clearDateText}>Clear</Text>
-      </TouchableOpacity>
-    )}
+    <View style={[styles.inputGroup, styles.half]}>
+      <Text style={styles.label}>NIC</Text>
+      <TextInput
+        style={[styles.input, errors.nic && styles.inputError]}
+        value={nic}
+        onChangeText={(text) => {
+          setNic(text);
+          if (errors.nic) {
+            setErrors((prev) => ({ ...prev, nic: "" }));
+          }
+        }}
+        autoCapitalize="characters"
+      />
+      {errors.nic ? (
+        <Text style={styles.errorText}>{errors.nic}</Text>
+      ) : null}
+    </View>
   </View>
 
-  <TouchableOpacity
-    style={styles.dateInput}
-    onPress={() => setShowAdmissionPicker(true)}
-  >
-    <Text style={styles.dateText}>
-      {admissionDate ? formatDate(admissionDate) : "Select admission date"}
-    </Text>
-    <Ionicons name="calendar-outline" size={18} color="#666" />
-  </TouchableOpacity>
-</View>
-<View style={styles.inputGroup}>
-  <View style={styles.labelRow}>
-    <Text style={styles.label}>Leaving Date</Text>
-
-    {leavingDate && (
-      <TouchableOpacity onPress={() => setLeavingDate(null)}>
-        <Text style={styles.clearDateText}>Clear</Text>
-      </TouchableOpacity>
-    )}
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>Phone Number</Text>
+    <TextInput
+      style={[styles.input, errors.phone && styles.inputError]}
+      value={phone}
+      onChangeText={(text) => {
+        setPhone(text);
+        if (errors.phone) {
+          setErrors((prev) => ({ ...prev, phone: "" }));
+        }
+      }}
+      keyboardType="phone-pad"
+    />
+    {errors.phone ? (
+      <Text style={styles.errorText}>{errors.phone}</Text>
+    ) : null}
   </View>
 
-  <TouchableOpacity
-    style={styles.dateInput}
-    onPress={() => setShowLeavingPicker(true)}
-  >
-    <Text style={styles.dateText}>
-      {leavingDate ? formatDate(leavingDate) : "Select leaving date"}
-    </Text>
-    <Ionicons name="calendar-outline" size={18} color="#666" />
-  </TouchableOpacity>
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>Whatsapp Number</Text>
+    <TextInput
+      style={[styles.input, errors.whatsapp && styles.inputError]}
+      value={whatsapp}
+      onChangeText={(text) => {
+        setWhatsapp(text);
+        if (errors.whatsapp) {
+          setErrors((prev) => ({ ...prev, whatsapp: "" }));
+        }
+      }}
+      keyboardType="phone-pad"
+    />
+    {errors.whatsapp ? (
+      <Text style={styles.errorText}>{errors.whatsapp}</Text>
+    ) : null}
+  </View>
+
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>Address</Text>
+    <TextInput
+      style={[styles.input, errors.address && styles.inputError]}
+      value={address}
+      onChangeText={(text) => {
+        setAddress(text);
+        if (errors.address) {
+          setErrors((prev) => ({ ...prev, address: "" }));
+        }
+      }}
+    />
+    {errors.address ? (
+      <Text style={styles.errorText}>{errors.address}</Text>
+    ) : null}
+  </View>
+
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>University</Text>
+    <TextInput
+      style={styles.input}
+      value={university}
+      onChangeText={setUniversity}
+    />
+  </View>
 </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Status</Text>
-            <View style={styles.statusRow}>
-              <TouchableOpacity
-                style={[
-                  styles.statusBtn,
-                  status === "active" && styles.statusBtnActive,
-                ]}
-                onPress={() => setStatus("active")}
-              >
-                <Text
-                  style={[
-                    styles.statusBtnText,
-                    status === "active" && styles.statusBtnTextActive,
-                  ]}
-                >
-                  Active
-                </Text>
-              </TouchableOpacity>
+<View style={styles.card}>
+  <Text style={styles.cardTitle}>Parent Details</Text>
 
-              <TouchableOpacity
-                style={[
-                  styles.statusBtn,
-                  status === "inactive" && styles.statusBtnInactive,
-                ]}
-                onPress={() => setStatus("inactive")}
-              >
-                <Text
-                  style={[
-                    styles.statusBtnText,
-                    status === "inactive" && styles.statusBtnTextInactive,
-                  ]}
-                >
-                  Inactive
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>Name</Text>
+    <TextInput
+      style={[styles.input, errors.parentName && styles.inputError]}
+      value={parentName}
+      onChangeText={(text) => {
+        setParentName(text);
+        if (errors.parentName) {
+          setErrors((prev) => ({ ...prev, parentName: "" }));
+        }
+      }}
+    />
+    {errors.parentName ? (
+      <Text style={styles.errorText}>{errors.parentName}</Text>
+    ) : null}
+  </View>
+
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>Phone Number</Text>
+    <TextInput
+      style={[styles.input, errors.parentPhone && styles.inputError]}
+      value={parentPhone}
+      onChangeText={(text) => {
+        setParentPhone(text);
+        if (errors.parentPhone) {
+          setErrors((prev) => ({ ...prev, parentPhone: "" }));
+        }
+      }}
+      keyboardType="phone-pad"
+    />
+    {errors.parentPhone ? (
+      <Text style={styles.errorText}>{errors.parentPhone}</Text>
+    ) : null}
+  </View>
+</View>
+
+<View style={styles.card}>
+  <Text style={styles.cardTitle}>Student Status</Text>
+
+  <View style={styles.inputGroup}>
+    <View style={styles.labelRow}>
+      <Text style={styles.label}>Admission Date</Text>
+
+      {admissionDate && (
+        <TouchableOpacity
+          onPress={() => {
+            setAdmissionDate(null);
+            if (errors.admissionDate) {
+              setErrors((prev) => ({ ...prev, admissionDate: "" }));
+            }
+          }}
+        >
+          <Text style={styles.clearDateText}>Clear</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+
+    <TouchableOpacity
+      style={[styles.dateInput, errors.admissionDate && styles.inputError]}
+      onPress={() => setShowAdmissionPicker(true)}
+    >
+      <Text style={[styles.dateText, !admissionDate && { color: "#999" }]}>
+        {admissionDate ? formatDate(admissionDate) : "Select admission date"}
+      </Text>
+      <Ionicons name="calendar-outline" size={18} color="#666" />
+    </TouchableOpacity>
+
+    {errors.admissionDate ? (
+      <Text style={styles.errorText}>{errors.admissionDate}</Text>
+    ) : null}
+  </View>
+
+  <View style={styles.inputGroup}>
+    <View style={styles.labelRow}>
+      <Text style={styles.label}>Leaving Date</Text>
+
+      {leavingDate && (
+        <TouchableOpacity
+          onPress={() => {
+            setLeavingDate(null);
+            if (errors.leavingDate) {
+              setErrors((prev) => ({ ...prev, leavingDate: "" }));
+            }
+          }}
+        >
+          <Text style={styles.clearDateText}>Clear</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+
+    <TouchableOpacity
+      style={[styles.dateInput, errors.leavingDate && styles.inputError]}
+      onPress={() => setShowLeavingPicker(true)}
+    >
+      <Text style={[styles.dateText, !leavingDate && { color: "#999" }]}>
+        {leavingDate ? formatDate(leavingDate) : "Select leaving date"}
+      </Text>
+      <Ionicons name="calendar-outline" size={18} color="#666" />
+    </TouchableOpacity>
+
+    {errors.leavingDate ? (
+      <Text style={styles.errorText}>{errors.leavingDate}</Text>
+    ) : null}
+  </View>
+
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>Status</Text>
+    <View style={styles.statusRow}>
+      <TouchableOpacity
+        style={[
+          styles.statusBtn,
+          status === "active" && styles.statusBtnActive,
+          errors.status && styles.inputError,
+        ]}
+        onPress={() => {
+          setStatus("active");
+          if (errors.status) {
+            setErrors((prev) => ({ ...prev, status: "" }));
+          }
+        }}
+      >
+        <Text
+          style={[
+            styles.statusBtnText,
+            status === "active" && styles.statusBtnTextActive,
+          ]}
+        >
+          Active
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.statusBtn,
+          status === "inactive" && styles.statusBtnInactive,
+          errors.status && styles.inputError,
+        ]}
+        onPress={() => {
+          setStatus("inactive");
+          if (errors.status) {
+            setErrors((prev) => ({ ...prev, status: "" }));
+          }
+        }}
+      >
+        <Text
+          style={[
+            styles.statusBtnText,
+            status === "inactive" && styles.statusBtnTextInactive,
+          ]}
+        >
+          Inactive
+        </Text>
+      </TouchableOpacity>
+    </View>
+
+    {errors.status ? (
+      <Text style={styles.errorText}>{errors.status}</Text>
+    ) : null}
+  </View>
+</View>
+        
           <View style={styles.bottomButtonRow}>
   <TouchableOpacity
     onPress={() => navigation.goBack()}
@@ -564,6 +662,15 @@ clearDateText: {
   fontSize: 13,
   fontWeight: "600",
   color: "#2E8B7D",
+},
+errorText: {
+  color: "#D64545",
+  fontSize: 12,
+  marginTop: 4,
+  marginLeft: 2,
+},
+inputError: {
+  borderColor: "#D64545",
 },
 
 });

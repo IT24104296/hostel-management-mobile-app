@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { addRoom, getRooms, getRoomSummary } from "../services/roomService";
+import { addRoom, getRooms, getRoomSummary } from "../../services/room/roomService";
 
 const STATUS_FILTERS = ["All", "Available", "Occupied", "Partially Occupied"];
 

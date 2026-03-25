@@ -1,4 +1,4 @@
-const Room = require("../models/Room");
+const Room = require("../../models/room/Room");
 
 const calcStatus = (capacity, count) => {
   if (count === 0) return "Available";

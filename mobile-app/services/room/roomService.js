@@ -1,4 +1,4 @@
-import API from "./api";
+import API from "../api";
 
 export const getRooms = async (status) => {
   const res = await API.get("/api/rooms", { params: status ? { status } : {} });

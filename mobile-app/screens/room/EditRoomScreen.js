@@ -15,7 +15,7 @@ import {
   updateRoom,
   assignStudent,
   removeStudent,
-} from "../services/roomService";
+} from "../../services/room/roomService";
 
 export default function EditRoomScreen({ route, navigation }) {
   const { roomId } = route.params;

@@ -1,8 +1,8 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import RoomListScreen from "../screens/RoomListScreen";
-import EditRoomScreen from "../screens/EditRoomScreen";
+import RoomListScreen from "../../screens/room/RoomListScreen";
+import EditRoomScreen from "../../screens/room/EditRoomScreen";
 
 const Stack = createNativeStackNavigator();
 

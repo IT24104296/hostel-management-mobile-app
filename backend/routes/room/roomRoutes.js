@@ -10,7 +10,7 @@ const {
   assignStudent,
   removeStudent,
   roomsSummary,
-} = require("../controllers/roomController");
+} = require("../../controllers/room/roomController");
 
 // summary first (so it doesn't get caught by "/:id")
 router.get("/summary", roomsSummary);

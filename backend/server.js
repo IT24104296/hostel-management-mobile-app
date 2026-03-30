@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
 
-const roomRoutes = require("./routes/roomRoutes"); // ✅ add this
+const roomRoutes = require("./routes/room/roomRoutes"); // ✅ add this
 
 const app = express();
 

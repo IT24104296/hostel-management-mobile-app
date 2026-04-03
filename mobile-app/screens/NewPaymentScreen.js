@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import API_URL from "../services/api";
@@ -16,15 +17,38 @@ export default function NewPaymentScreen({ route, navigation }) {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentDate, setPaymentDate] = useState("");
-  const [status, setStatus] = useState("completed");
+  const [notes, setNotes] = useState("");
+  const [paidMonth, setPaidMonth] = useState("");
+
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
 
   const generateReceiptNo = () => {
     return "FTXN" + Date.now();
   };
 
   const recordPayment = async () => {
-    if (!amount || !paymentMethod || !paymentDate || !status) {
+    const wordCount = notes.trim() ? notes.trim().split(/\s+/).length : 0;
+
+    if (!amount || !paymentMethod || !paymentDate || !paidMonth) {
       Alert.alert("Error", "Please fill all required fields");
+      return;
+    }
+
+    if (wordCount > 100) {
+      Alert.alert("Error", "Notes cannot exceed 100 words");
       return;
     }
 
@@ -41,8 +65,9 @@ export default function NewPaymentScreen({ route, navigation }) {
           amount: Number(amount),
           paymentMethod,
           paymentDate,
-          paymentMonth: paymentDate.slice(0, 7),
-          status,
+          paymentMonth: paidMonth,
+          notes,
+          status: "completed",
           receiptNo: generateReceiptNo(),
         }),
       });
@@ -54,9 +79,12 @@ export default function NewPaymentScreen({ route, navigation }) {
         return;
       }
 
-      Alert.alert("Success", "Payment recorded successfully");
-
-      navigation.goBack();
+      Alert.alert("Success", "Payment recorded successfully", [
+        {
+          text: "OK",
+          onPress: () => navigation.goBack(),
+        },
+      ]);
     } catch (error) {
       console.log("Error adding payment:", error);
       Alert.alert("Error", "Something went wrong");
@@ -64,7 +92,7 @@ export default function NewPaymentScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color="#444" />
@@ -112,30 +140,20 @@ export default function NewPaymentScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.label}>Payment Status *</Text>
-
-      <View style={styles.methodRow}>
-        <TouchableOpacity
-          style={[
-            styles.methodBox,
-            status === "completed" && styles.activeMethod,
-          ]}
-          onPress={() => setStatus("completed")}
-        >
-          <Ionicons name="checkmark-circle-outline" size={26} color="#333" />
-          <Text style={styles.methodText}>Completed</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.methodBox,
-            status === "pending" && styles.activeMethod,
-          ]}
-          onPress={() => setStatus("pending")}
-        >
-          <Ionicons name="time-outline" size={26} color="#333" />
-          <Text style={styles.methodText}>Pending</Text>
-        </TouchableOpacity>
+      <Text style={styles.label}>Paid Month *</Text>
+      <View style={styles.monthGrid}>
+        {months.map((month) => (
+          <TouchableOpacity
+            key={month}
+            style={[
+              styles.monthBox,
+              paidMonth === month && styles.activeMethod,
+            ]}
+            onPress={() => setPaidMonth(month)}
+          >
+            <Text style={styles.monthText}>{month}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <Text style={styles.label}>Payment Date *</Text>
@@ -145,6 +163,18 @@ export default function NewPaymentScreen({ route, navigation }) {
         value={paymentDate}
         onChangeText={setPaymentDate}
       />
+
+      <Text style={styles.label}>Notes (Max 100 words)</Text>
+      <TextInput
+        style={[styles.input, styles.notesInput]}
+        placeholder="Enter notes here"
+        value={notes}
+        onChangeText={setNotes}
+        multiline
+      />
+      <Text style={styles.wordCount}>
+        {notes.trim() ? notes.trim().split(/\s+/).length : 0}/100 words
+      </Text>
 
       <View style={styles.buttonRow}>
         <TouchableOpacity
@@ -158,16 +188,17 @@ export default function NewPaymentScreen({ route, navigation }) {
           <Text style={styles.saveText}>Record Payment</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#dff1ec",
     paddingTop: 55,
     paddingHorizontal: 18,
+    paddingBottom: 30,
+    backgroundColor: "#dff1ec",
+    flexGrow: 1,
   },
   header: {
     flexDirection: "row",
@@ -207,6 +238,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
   },
+  notesInput: {
+    minHeight: 100,
+    textAlignVertical: "top",
+  },
+  wordCount: {
+    marginTop: 6,
+    color: "#666",
+    fontSize: 12,
+    textAlign: "right",
+  },
   methodRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -227,6 +268,25 @@ const styles = StyleSheet.create({
   methodText: {
     marginTop: 8,
     fontWeight: "600",
+  },
+  monthGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  monthBox: {
+    width: "31%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginBottom: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  monthText: {
+    fontSize: 13,
+    fontWeight: "500",
   },
   buttonRow: {
     flexDirection: "row",

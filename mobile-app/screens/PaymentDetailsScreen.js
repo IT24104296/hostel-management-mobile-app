@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -12,67 +13,98 @@ import API_URL from "../services/api";
 export default function PaymentDetailsScreen({ route, navigation }) {
   const { studentId } = route.params;
 
-  const [student, setStudent] = useState(null);
-  const [summary, setSummary] = useState(null);
   const [payments, setPayments] = useState([]);
   const [filter, setFilter] = useState("all");
 
   const fetchDetails = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/payments/student/${studentId}?status=${filter}`
-      );
+      const response = await fetch(`${API_URL}/api/payments`);
       const data = await response.json();
-      setStudent(data.student);
-      setSummary(data.summary);
-      setPayments(data.payments);
+
+      const studentPayments = data.filter((item) => {
+        if (item.studentId !== studentId) return false;
+
+        if (filter === "all") return true;
+
+        const itemStatus = (item.status || "").toLowerCase();
+
+        if (filter === "paid") {
+          return itemStatus === "paid" || itemStatus === "completed";
+        }
+
+        return itemStatus === filter;
+      });
+
+      setPayments(studentPayments);
     } catch (error) {
-      console.log(error);
+      console.log("Error fetching payment details:", error);
     }
   };
 
-  useEffect(() => {
-    fetchDetails();
-  }, [filter]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchDetails();
+    }, [filter])
+  );
 
-  if (!student || !summary) {
+  const totalPaid = payments
+    .filter((item) => {
+      const status = (item.status || "").toLowerCase();
+      return status === "completed" || status === "paid";
+    })
+    .reduce((sum, item) => sum + (item.amount || 0), 0);
+
+  const totalDue = payments
+  .filter((item) => {
+    const status = (item.status || "").toLowerCase();
+    return status === "pending" || status === "due";
+  })
+  .reduce((sum, item) => sum + (item.amount || 0), 0);
+
+  const firstPayment = payments[0];
+
+  const renderHistory = ({ item }) => {
+    const itemStatus = (item.status || "").toLowerCase();
+    const isPaid = itemStatus === "paid" || itemStatus === "completed";
+
+    return (
+      <View style={styles.historyCard}>
+        <View style={styles.historyTop}>
+          <Text style={styles.amountText}>Rs. {item.amount || 0}</Text>
+
+          {isPaid && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Receipt", { paymentId: item._id })}
+            >
+              <Text style={styles.receiptText}>Receipt</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <Text
+          style={[
+            styles.statusTag,
+            isPaid ? styles.completedTag : styles.pendingTag,
+          ]}
+        >
+          {item.status || "unknown"}
+        </Text>
+
+        <Text style={styles.historyLine}>Date: {item.paymentDate || "-"}</Text>
+        <Text style={styles.historyLine}>Method: {item.paymentMethod || "-"}</Text>
+        <Text style={styles.historyLine}>Month: {item.paymentMonth || "-"}</Text>
+        <Text style={styles.noteText}>Room: {item.roomNumber || "-"}</Text>
+      </View>
+    );
+  };
+
+  if (!firstPayment) {
     return (
       <View style={styles.center}>
-        <Text>Loading...</Text>
+        <Text>No payment details found</Text>
       </View>
     );
   }
-
-  const renderHistory = ({ item }) => (
-    <View style={styles.historyCard}>
-      <View style={styles.historyTop}>
-        <Text style={styles.amountText}>Rs. {item.amount.toLocaleString()}</Text>
-        {item.status === "completed" && (
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Receipt", { paymentId: item._id })}
-          >
-            <Text style={styles.receiptText}>Receipt</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <Text
-        style={[
-          styles.statusTag,
-          item.status === "completed" ? styles.completedTag : styles.pendingTag,
-        ]}
-      >
-        {item.status}
-      </Text>
-
-      <Text style={styles.historyLine}>{item.paymentDate}</Text>
-      <Text style={styles.historyLine}>
-        {item.paymentMethod === "bank transfer" ? "Bank Transfer" : item.paymentMethod}
-      </Text>
-      <Text style={styles.historyLine}>Received by: {item.receivedBy || "-"}</Text>
-      <Text style={styles.noteText}>{item.notes || "-"}</Text>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -84,32 +116,35 @@ export default function PaymentDetailsScreen({ route, navigation }) {
       </View>
 
       <View style={styles.profileCard}>
-        <Text style={styles.name}>{student.name}</Text>
-        <Text style={styles.subText}>
-          Room {student.roomNumber}   {student.studentId}
-        </Text>
+        <Text style={styles.name}>{firstPayment.studentId}</Text>
+        <Text style={styles.subText}>Room {firstPayment.roomNumber}</Text>
 
         <View style={styles.summaryRow}>
           <View style={[styles.summaryBox, styles.paidBox]}>
             <Text style={styles.smallText}>Total Paid</Text>
-            <Text style={styles.summaryAmount}>Rs. {summary.totalPaid.toLocaleString()}</Text>
+            <Text style={styles.summaryAmount}>Rs. {totalPaid}</Text>
           </View>
 
           <View style={[styles.summaryBox, styles.dueBox]}>
             <Text style={styles.smallText}>Total Due</Text>
             <Text style={[styles.summaryAmount, { color: "#d62828" }]}>
-              Rs. {summary.totalDue.toLocaleString()}
+              Rs. {totalDue}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity
           style={styles.recordButton}
-          onPress={() =>
+          onPress={() => {
+            if (!firstPayment) {
+              return;
+            }
+
             navigation.navigate("NewPayment", {
-              student,
-            })
-          }
+              studentId: firstPayment.studentId,
+              roomNumber: firstPayment.roomNumber,
+            });
+          }}
         >
           <Text style={styles.recordButtonText}>Record New Payment</Text>
         </TouchableOpacity>
@@ -120,15 +155,17 @@ export default function PaymentDetailsScreen({ route, navigation }) {
           style={[styles.filterBtn, filter === "all" && styles.activeFilter]}
           onPress={() => setFilter("all")}
         >
-          <Text style={filter === "all" ? styles.activeText : styles.filterText}>All</Text>
+          <Text style={filter === "all" ? styles.activeText : styles.filterText}>
+            All
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterBtn, filter === "completed" && styles.activeFilter]}
-          onPress={() => setFilter("completed")}
+          style={[styles.filterBtn, filter === "paid" && styles.activeFilter]}
+          onPress={() => setFilter("paid")}
         >
-          <Text style={filter === "completed" ? styles.activeText : styles.filterText}>
-            Completed
+          <Text style={filter === "paid" ? styles.activeText : styles.filterText}>
+            Paid
           </Text>
         </TouchableOpacity>
 
@@ -155,7 +192,11 @@ export default function PaymentDetailsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   container: {
     flex: 1,
     backgroundColor: "#dff1ec",
@@ -264,6 +305,7 @@ const styles = StyleSheet.create({
   historyTop: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
   amountText: {
     fontWeight: "700",

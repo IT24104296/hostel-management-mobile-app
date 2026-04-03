@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import API_URL from "../services/api";
 
-export default function PaymentListScreen() {
+export default function PaymentListScreen({ navigation }) {
   const [payments, setPayments] = useState([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -19,52 +20,58 @@ export default function PaymentListScreen() {
     try {
       const response = await fetch(`${API_URL}/api/payments`);
       const data = await response.json();
-
-      const grouped = {};
-
-      data.forEach((item) => {
-        if (!grouped[item.studentId]) {
-          grouped[item.studentId] = {
-            studentId: item.studentId,
-            roomNumber: item.roomNumber,
-            totalPaid: 0,
-            payments: [],
-            status: item.status,
-          };
-        }
-
-        grouped[item.studentId].totalPaid += item.amount;
-        grouped[item.studentId].payments.push(item);
-      });
-
-      const result = Object.values(grouped);
-      setPayments(result);
+      console.log("Fetched payments:", data);
+      setPayments(data);
     } catch (error) {
       console.log("Error fetching payments:", error);
     }
   };
 
-  useEffect(() => {
-    fetchPayments();
-  }, []);
+  // refresh every time screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchPayments();
+    }, [])
+  );
 
   const filteredPayments = payments.filter((item) => {
-    const matchRoom = item.roomNumber
+    const matchRoom = (item.roomNumber || "")
       .toLowerCase()
       .includes(search.toLowerCase());
 
+    const status = (item.status || "").toLowerCase();
+
     if (filter === "all") return matchRoom;
-    return matchRoom && item.status.toLowerCase() === filter;
+
+    if (filter === "completed") {
+      return matchRoom && (status === "completed" || status === "paid");
+    }
+
+    if (filter === "pending") {
+      return matchRoom && (status === "pending" || status === "due");
+    }
+
+    return matchRoom;
   });
 
   const renderCard = ({ item }) => (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() =>
+        navigation.navigate("PaymentDetails", {
+          studentId: item.studentId,
+        })
+      }
+    >
       <View style={styles.cardTop}>
         <Text style={styles.studentName}>{item.studentId}</Text>
         <Text
           style={[
             styles.badge,
-            item.status === "paid" ? styles.paidBadge : styles.dueBadge,
+            (item.status || "").toLowerCase() === "completed" ||
+            (item.status || "").toLowerCase() === "paid"
+              ? styles.paidBadge
+              : styles.dueBadge,
           ]}
         >
           {item.status}
@@ -72,14 +79,10 @@ export default function PaymentListScreen() {
       </View>
 
       <Text style={styles.subText}>Room {item.roomNumber}</Text>
-
-      <Text style={styles.totalText}>
-        Total Paid: Rs. {item.totalPaid}
-      </Text>
-
-      <Text style={styles.totalText}>
-        Payments: {item.payments.length}
-      </Text>
+      <Text style={styles.totalText}>Month: {item.paymentMonth}</Text>
+      <Text style={styles.totalText}>Amount: Rs. {item.amount}</Text>
+      <Text style={styles.totalText}>Method: {item.paymentMethod}</Text>
+      <Text style={styles.totalText}>Date: {item.paymentDate}</Text>
 
       <Ionicons
         name="chevron-forward"
@@ -87,7 +90,7 @@ export default function PaymentListScreen() {
         color="#555"
         style={styles.arrow}
       />
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -111,7 +114,7 @@ export default function PaymentListScreen() {
         />
       </View>
 
-      <Text style={styles.countText}>{filteredPayments.length} Students</Text>
+      <Text style={styles.countText}>{filteredPayments.length} Payments</Text>
 
       <View style={styles.filterRow}>
         <TouchableOpacity
@@ -126,31 +129,39 @@ export default function PaymentListScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterBtn, filter === "paid" && styles.activeFilter]}
-          onPress={() => setFilter("paid")}
+          style={[styles.filterBtn, filter === "completed" && styles.activeFilter]}
+          onPress={() => setFilter("completed")}
         >
           <Text
-            style={filter === "paid" ? styles.activeFilterText : styles.filterText}
+            style={
+              filter === "completed"
+                ? styles.activeFilterText
+                : styles.filterText
+            }
           >
-            Paid
+            Completed
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterBtn, filter === "due" && styles.activeFilter]}
-          onPress={() => setFilter("due")}
+          style={[styles.filterBtn, filter === "pending" && styles.activeFilter]}
+          onPress={() => setFilter("pending")}
         >
           <Text
-            style={filter === "due" ? styles.activeFilterText : styles.filterText}
+            style={
+              filter === "pending"
+                ? styles.activeFilterText
+                : styles.filterText
+            }
           >
-            Due
+            Pending
           </Text>
         </TouchableOpacity>
       </View>
 
       <FlatList
         data={filteredPayments}
-        keyExtractor={(item) => item.studentId}
+        keyExtractor={(item) => item._id}
         renderItem={renderCard}
         showsVerticalScrollIndicator={false}
       />

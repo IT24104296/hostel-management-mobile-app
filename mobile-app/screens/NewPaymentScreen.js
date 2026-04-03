@@ -11,16 +11,19 @@ import { Ionicons } from "@expo/vector-icons";
 import API_URL from "../services/api";
 
 export default function NewPaymentScreen({ route, navigation }) {
-  const { student } = route.params;
+  const { studentId, roomNumber } = route.params;
 
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentDate, setPaymentDate] = useState("");
-  const [receivedBy, setReceivedBy] = useState("");
-  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState("completed");
+
+  const generateReceiptNo = () => {
+    return "FTXN" + Date.now();
+  };
 
   const recordPayment = async () => {
-    if (!amount || !paymentMethod || !paymentDate || !receivedBy) {
+    if (!amount || !paymentMethod || !paymentDate || !status) {
       Alert.alert("Error", "Please fill all required fields");
       return;
     }
@@ -32,14 +35,15 @@ export default function NewPaymentScreen({ route, navigation }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          studentId: student.studentId,
+          studentId,
+          studentName: studentId,
+          roomNumber,
           amount: Number(amount),
           paymentMethod,
           paymentDate,
-          receivedBy,
-          notes,
-          status: paymentMethod === "pending" ? "pending" : "completed",
           paymentMonth: paymentDate.slice(0, 7),
+          status,
+          receiptNo: generateReceiptNo(),
         }),
       });
 
@@ -52,11 +56,9 @@ export default function NewPaymentScreen({ route, navigation }) {
 
       Alert.alert("Success", "Payment recorded successfully");
 
-      navigation.replace("Receipt", {
-        paymentId: data._id,
-      });
+      navigation.goBack();
     } catch (error) {
-      console.log(error);
+      console.log("Error adding payment:", error);
       Alert.alert("Error", "Something went wrong");
     }
   };
@@ -71,10 +73,8 @@ export default function NewPaymentScreen({ route, navigation }) {
       </View>
 
       <View style={styles.studentCard}>
-        <Text style={styles.studentName}>{student.name}</Text>
-        <Text style={styles.studentSub}>
-          Room {student.roomNumber}   {student.studentId}
-        </Text>
+        <Text style={styles.studentName}>{studentId}</Text>
+        <Text style={styles.studentSub}>Room {roomNumber}</Text>
       </View>
 
       <Text style={styles.label}>Payment Amount *</Text>
@@ -112,6 +112,32 @@ export default function NewPaymentScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
+      <Text style={styles.label}>Payment Status *</Text>
+
+      <View style={styles.methodRow}>
+        <TouchableOpacity
+          style={[
+            styles.methodBox,
+            status === "completed" && styles.activeMethod,
+          ]}
+          onPress={() => setStatus("completed")}
+        >
+          <Ionicons name="checkmark-circle-outline" size={26} color="#333" />
+          <Text style={styles.methodText}>Completed</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.methodBox,
+            status === "pending" && styles.activeMethod,
+          ]}
+          onPress={() => setStatus("pending")}
+        >
+          <Ionicons name="time-outline" size={26} color="#333" />
+          <Text style={styles.methodText}>Pending</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.label}>Payment Date *</Text>
       <TextInput
         style={styles.input}
@@ -120,24 +146,11 @@ export default function NewPaymentScreen({ route, navigation }) {
         onChangeText={setPaymentDate}
       />
 
-      <Text style={styles.label}>Received By *</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Admin/Staff name"
-        value={receivedBy}
-        onChangeText={setReceivedBy}
-      />
-
-      <Text style={styles.label}>Notes (Optional)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="eg. Hostel Fee for March 2026"
-        value={notes}
-        onChangeText={setNotes}
-      />
-
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.cancelBtn}
+          onPress={() => navigation.goBack()}
+        >
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
 

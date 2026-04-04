@@ -31,6 +31,16 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+        phoneNumber: {
+      type: String,
+      required: true,
+      validate: {
+        validator: function (value) {
+          return /^[0-9]{10}$/.test(value);
+        },
+        message: "Phone number must contain exactly 10 digits",
+      },
+    },
     receivedBy: {
       type: String,
       default: "",

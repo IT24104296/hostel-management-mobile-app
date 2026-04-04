@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import API_URL from "../services/api";
@@ -47,6 +48,30 @@ export default function PaymentDetailsScreen({ route, navigation }) {
     }, [filter])
   );
 
+  const deletePayment = async (id) => {
+    Alert.alert(
+      "Confirm Delete",
+      "Are you sure you want to delete this payment?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await fetch(`${API_URL}/api/payments/${id}`, {
+                method: "DELETE",
+              });
+              fetchDetails();
+            } catch (error) {
+              console.log("Error deleting payment:", error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const totalPaid = payments
     .filter((item) => {
       const status = (item.status || "").toLowerCase();
@@ -55,11 +80,11 @@ export default function PaymentDetailsScreen({ route, navigation }) {
     .reduce((sum, item) => sum + (item.amount || 0), 0);
 
   const totalDue = payments
-  .filter((item) => {
-    const status = (item.status || "").toLowerCase();
-    return status === "pending" || status === "due";
-  })
-  .reduce((sum, item) => sum + (item.amount || 0), 0);
+    .filter((item) => {
+      const status = (item.status || "").toLowerCase();
+      return status === "pending" || status === "due";
+    })
+    .reduce((sum, item) => sum + (item.amount || 0), 0);
 
   const firstPayment = payments[0];
 
@@ -72,13 +97,21 @@ export default function PaymentDetailsScreen({ route, navigation }) {
         <View style={styles.historyTop}>
           <Text style={styles.amountText}>Rs. {item.amount || 0}</Text>
 
-          {isPaid && (
-            <TouchableOpacity
-              onPress={() => navigation.navigate("Receipt", { paymentId: item._id })}
-            >
-              <Text style={styles.receiptText}>Receipt</Text>
+          <View style={styles.actionRow}>
+            {isPaid && (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("Receipt", { paymentId: item._id })
+                }
+              >
+                <Text style={styles.receiptText}>Receipt</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity onPress={() => deletePayment(item._id)}>
+              <Ionicons name="trash-outline" size={20} color="red" />
             </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         <Text
@@ -306,6 +339,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   amountText: {
     fontWeight: "700",

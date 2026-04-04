@@ -17,6 +17,7 @@ export default function NewPaymentScreen({ route, navigation }) {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentDate, setPaymentDate] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [paidMonth, setPaidMonth] = useState("");
 
@@ -42,8 +43,15 @@ export default function NewPaymentScreen({ route, navigation }) {
   const recordPayment = async () => {
     const wordCount = notes.trim() ? notes.trim().split(/\s+/).length : 0;
 
-    if (!amount || !paymentMethod || !paymentDate || !paidMonth) {
+    if (!amount || !paymentMethod || !paymentDate || !paidMonth || !phoneNumber) {
       Alert.alert("Error", "Please fill all required fields");
+      return;
+    }
+
+    const phoneRegex = /^[0-9]{10}$/;
+
+    if (!phoneRegex.test(phoneNumber)) {
+      Alert.alert("Error", "Phone number must contain exactly 10 digits");
       return;
     }
 
@@ -65,6 +73,7 @@ export default function NewPaymentScreen({ route, navigation }) {
           amount: Number(amount),
           paymentMethod,
           paymentDate,
+          phoneNumber,
           paymentMonth: paidMonth,
           notes,
           status: "completed",
@@ -162,6 +171,16 @@ export default function NewPaymentScreen({ route, navigation }) {
         placeholder="yyyy-mm-dd"
         value={paymentDate}
         onChangeText={setPaymentDate}
+      />
+
+      <Text style={styles.label}>Student Phone Number *</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Enter 10 digit phone number"
+        value={phoneNumber}
+        onChangeText={(text) => setPhoneNumber(text.replace(/[^0-9]/g, ""))}
+        keyboardType="numeric"
+        maxLength={10}
       />
 
       <Text style={styles.label}>Notes (Max 100 words)</Text>

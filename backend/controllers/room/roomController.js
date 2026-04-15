@@ -37,7 +37,11 @@ exports.getRooms = async (req, res) => {
   try {
     const { status } = req.query;
     const query = status ? { status } : {};
-    const rooms = await Room.find(query).sort({ createdAt: -1 });
+
+    const rooms = await Room.find(query)
+      .populate("assignedStudents.student", "name firstName lastName email")
+      .sort({ createdAt: -1 });
+
     res.json(rooms);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -85,9 +89,21 @@ exports.updateRoom = async (req, res) => {
 exports.deleteRoom = async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
-    if (!room) return res.status(404).json({ message: "Room not found" });
+
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    // 🚫 NEW VALIDATION (IMPORTANT)
+    if (room.assignedStudents.length > 0) {
+      return res.status(400).json({
+        message: "Cannot delete room with assigned students. Please reassign or remove students first.",
+      });
+    }
+
     await room.deleteOne();
-    res.json({ message: "Room deleted" });
+
+    res.json({ message: "Room deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

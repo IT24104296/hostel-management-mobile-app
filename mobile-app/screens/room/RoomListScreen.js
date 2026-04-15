@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   View,
   Text,
@@ -9,8 +10,16 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
-import { addRoom, getRooms, getRoomSummary } from "../../services/room/roomService";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import {
+  addRoom,
+  getRooms,
+  getRoomSummary,
+  deleteRoom,
+} from "../../services/room/roomService";
 
 const STATUS_FILTERS = ["All", "Available", "Occupied", "Partially Occupied"];
 
@@ -22,7 +31,6 @@ export default function RoomListScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
 
-  // Add Room modal
   const [showAdd, setShowAdd] = useState(false);
   const [roomNumber, setRoomNumber] = useState("");
   const [floor, setFloor] = useState("");
@@ -33,7 +41,7 @@ export default function RoomListScreen({ navigation }) {
     try {
       setLoading(true);
       const [roomsData, summaryData] = await Promise.all([
-        getRooms(), // load all then filter locally
+        getRooms(),
         getRoomSummary(),
       ]);
       setRooms(roomsData);
@@ -46,9 +54,17 @@ export default function RoomListScreen({ navigation }) {
     }
   };
 
+  // ✅ runs first time
   useEffect(() => {
     load();
   }, []);
+
+  // ✅ runs EVERY time screen comes into focus (THIS FIXES YOUR ISSUE)
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [])
+  );
 
   const filteredRooms = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -58,8 +74,7 @@ export default function RoomListScreen({ navigation }) {
         String(r.roomNumber).toLowerCase().includes(s) ||
         String(r.floor).toLowerCase().includes(s);
 
-      const matchesFilter =
-        filter === "All" ? true : r.status === filter;
+      const matchesFilter = filter === "All" ? true : r.status === filter;
 
       return matchesSearch && matchesFilter;
     });
@@ -71,8 +86,10 @@ export default function RoomListScreen({ navigation }) {
       Alert.alert("Missing info", "Please fill Room Number, Floor and Capacity.");
       return;
     }
+
     const floorNum = Number(floor);
     const capNum = Number(capacity);
+
     if (Number.isNaN(floorNum) || Number.isNaN(capNum) || capNum < 1) {
       Alert.alert("Invalid", "Floor and Capacity must be valid numbers.");
       return;
@@ -81,10 +98,14 @@ export default function RoomListScreen({ navigation }) {
     try {
       setSaving(true);
       await addRoom({ roomNumber: rn, floor: floorNum, capacity: capNum });
+
+      Alert.alert("Success", "Room added successfully");
+
       setShowAdd(false);
       setRoomNumber("");
       setFloor("");
       setCapacity("");
+
       await load();
     } catch (e) {
       const msg = e?.response?.data?.message || "Failed to add room.";
@@ -94,27 +115,72 @@ export default function RoomListScreen({ navigation }) {
     }
   };
 
-  const SummaryCard = ({ label, value }) => (
-    <View style={styles.summaryCard}>
-      <Text style={styles.summaryValue}>{value ?? "-"}</Text>
+  const handleDeleteRoom = (roomId, roomNumber) => {
+    Alert.alert(
+      "Delete Room",
+      `Are you sure you want to delete Room ${roomNumber}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteRoom(roomId);
+              Alert.alert("Deleted", "Room deleted successfully");
+              await load();
+            } catch (e) {
+              const msg = e?.response?.data?.message || "Failed to delete room.";
+              Alert.alert("Error", msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ── SUMMARY CARD ────────────────────────────────────────────────────────────
+  const SummaryCard = ({ label, value, icon, type }) => {
+  const config = {
+    total: {
+      border: "#CFE5DF",
+    },
+    occupied: {
+      border: "#E57373",
+    },
+    available: {
+      border: "#2F6F5E",
+    },
+  };
+
+  const c = config[type];
+
+  return (
+    <View
+      style={[
+        styles.summaryCard,
+        { borderLeftColor: c.border }
+      ]}
+    >
+      <View style={styles.summaryInner}>
+        <View style={styles.summaryIconBox}>
+          {icon}
+        </View>
+        <Text style={styles.summaryValue}>{value ?? "-"}</Text>
+      </View>
       <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
+};
 
+  // ── STATUS PILL ──────────────────────────────────────────────────────────────
   const StatusPill = ({ status }) => {
-    const bg =
-      status === "Available"
-        ? "#E7F6ED"
-        : status === "Occupied"
-        ? "#FDECEC"
-        : "#FFF5D9";
-    const fg =
-      status === "Available"
-        ? "#1C7C3A"
-        : status === "Occupied"
-        ? "#B42318"
-        : "#9A6B00";
-
+    const config = {
+      Available: { bg: "#E7F6ED", fg: "#1C7C3A" },
+      Occupied: { bg: "#FDECEC", fg: "#B42318" },
+      "Partially Occupied": { bg: "#FFF5D9", fg: "#9A6B00" },
+    };
+    const { bg, fg } = config[status] || { bg: "#F0F0F0", fg: "#666" };
     return (
       <View style={[styles.pill, { backgroundColor: bg }]}>
         <Text style={[styles.pillText, { color: fg }]}>{status}</Text>
@@ -122,52 +188,151 @@ export default function RoomListScreen({ navigation }) {
     );
   };
 
-  const RoomCard = ({ item }) => (
-  <Pressable
-    style={styles.roomCard}
-    onPress={() => navigation.navigate("EditRoom", { roomId: item._id })}
-  >
-    <View style={{ flex: 1 }}>
-      <Text style={styles.roomTitle}>Room {item.roomNumber}</Text>
-      <Text>Floor {item.floor}</Text>
-      <Text>
-        Capacity {item.assignedStudents.length}/{item.capacity}
-      </Text>
-      <Text>Status: {item.status}</Text>
-    </View>
-  </Pressable>
-);
+  // Helper: extract student display name from any shape of data
+  const getStudentName = (s) => {
+    // Populated object: s.student.name or s.student.firstName
+    if (s?.student) {
+      const st = s.student;
+      return (
+        st.name ||
+        `${st.firstName ?? ""} ${st.lastName ?? ""}`.trim() ||
+        st.username ||
+        st.email?.split("@")[0] ||
+        ""
+      );
+    }
+    // Flat object: s.name or s.firstName
+    return (
+      s?.name ||
+      `${s?.firstName ?? ""} ${s?.lastName ?? ""}`.trim() ||
+      s?.username ||
+      s?.email?.split("@")[0] ||
+      ""
+    );
+  };
+
+  // Helper: get initials for avatar fallback
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ");
+    return parts.length >= 2
+      ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+      : name[0].toUpperCase();
+  };
+
+  // ── ROOM CARD ────────────────────────────────────────────────────────────────
+  const RoomCard = ({ item }) => {
+    const assignedStudents = item.assignedStudents ?? [];
+    const assignedCount = assignedStudents.length;
+
+    return (
+      <View style={styles.roomCard}>
+        {/* Top row: title + status pill + icons */}
+        <View style={styles.roomHeaderRow}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, flexWrap: "wrap" }}>
+            <Text style={styles.roomTitle}>Room {item.roomNumber}</Text>
+            <StatusPill status={item.status} />
+          </View>
+          <View style={styles.iconRow}>
+            <Pressable
+              style={styles.actionIcon}
+              onPress={() => navigation.navigate("EditRoom", { roomId: item._id })}
+            >
+              <Ionicons name="pencil-outline" size={16} color="#2F6F5E" />
+            </Pressable>
+            <Pressable
+              style={styles.actionIcon}
+              onPress={() => handleDeleteRoom(item._id, item.roomNumber)}
+            >
+              <Ionicons name="trash-outline" size={16} color="#2F6F5E" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Sub-info */}
+        <Text style={styles.roomSub}>
+          Floor {item.floor}{"   "}Capacity {assignedCount}/{item.capacity}
+        </Text>
+
+        {/* Student tags — show name pill if name found, else avatar circle */}
+        {assignedStudents.length > 0 && (
+          <View style={styles.studentTagRow}>
+            {assignedStudents.map((s, i) => {
+              const name = getStudentName(s);
+              if (name) {
+                return (
+                  <View key={i} style={styles.studentTag}>
+                    <Text style={styles.studentTagText}>{name}</Text>
+                  </View>
+                );
+              }
+              // Fallback: initials avatar circle
+              return (
+                <View key={i} style={styles.studentAvatar}>
+                  <Text style={styles.studentAvatarText}>{getInitials(name)}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 10 }}>Loading...</Text>
+        <ActivityIndicator size="large" color="#2F6F5E" />
+        <Text style={{ marginTop: 10, color: "#555" }}>Loading...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Summary cards row */}
+      {/* ── SUMMARY ROW ── */}
       <View style={styles.summaryRow}>
-        <SummaryCard label="Total" value={summary?.totalRooms} />
-        <SummaryCard label="Occupied" value={summary?.occupiedRooms} />
-        <SummaryCard label="Available" value={summary?.availableRooms} />
-      </View>
+  <SummaryCard
+  label="Total"
+  value={summary?.totalRooms}
+  type="total"
+  icon={<MaterialCommunityIcons name="door-open" size={18} color="#555" />}
+/>
 
-      {/* Search */}
+<SummaryCard
+  label="Occupied"
+  value={summary?.occupiedRooms}
+  type="occupied"
+  icon={<MaterialCommunityIcons name="door-closed" size={18} color="#B42318" />}
+/>
+
+<SummaryCard
+  label="Available"
+  value={summary?.availableRooms}
+  type="available"
+  icon={<MaterialCommunityIcons name="bed" size={18} color="#2F6F5E" />}
+/>
+</View>
+
+      {/* ── SEARCH ── */}
       <View style={styles.searchBox}>
+        <Ionicons name="search-outline" size={16} color="#aaa" style={{ marginRight: 6 }} />
         <TextInput
           placeholder="Search by room number..."
+          placeholderTextColor="#aaa"
           value={search}
           onChangeText={setSearch}
           style={styles.searchInput}
         />
       </View>
 
-      {/* Filters */}
-      <View style={styles.filterRow}>
+      {/* ── FILTERS ── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginVertical: 10, flexGrow: 0 }}
+        contentContainerStyle={styles.filterRow}
+      >
         {STATUS_FILTERS.map((f) => (
           <Pressable
             key={f}
@@ -175,125 +340,311 @@ export default function RoomListScreen({ navigation }) {
             style={[styles.filterChip, filter === f && styles.filterChipActive]}
           >
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f === "Partially Occupied" ? "Partially Occupied" : f}
+              {f}
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
-      {/* Rooms list */}
+      {/* ── LIST ── */}
       <FlatList
         data={filteredRooms}
         keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingBottom: 90 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
         renderItem={({ item }) => <RoomCard item={item} />}
         refreshing={loading}
         onRefresh={load}
-        ListEmptyComponent={<Text style={{ marginTop: 20 }}>No rooms found.</Text>}
+        ListEmptyComponent={
+          <Text style={{ marginTop: 20, textAlign: "center", color: "#888" }}>
+            No rooms found.
+          </Text>
+        }
       />
 
-      {/* Floating + button */}
+      {/* ── FAB ── */}
       <Pressable style={styles.fab} onPress={() => setShowAdd(true)}>
-        <Text style={styles.fabText}>＋</Text>
+        <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
 
-      {/* Add Room Modal */}
-      <Modal visible={showAdd} transparent animationType="fade" onRequestClose={() => setShowAdd(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Room</Text>
-              <Pressable onPress={() => setShowAdd(false)}>
-                <Text style={{ fontSize: 18, fontWeight: "800" }}>✕</Text>
-              </Pressable>
-            </View>
+      {/* ── ADD ROOM MODAL ── */}
+      <Modal visible={showAdd} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAdd(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Add New Room</Text>
 
             <Text style={styles.inputLabel}>Room Number</Text>
-            <TextInput style={styles.input} value={roomNumber} onChangeText={setRoomNumber} />
+            <TextInput
+              style={styles.input}
+              value={roomNumber}
+              onChangeText={setRoomNumber}
+              placeholder=""
+            />
 
             <Text style={styles.inputLabel}>Floor</Text>
-            <TextInput style={styles.input} value={floor} onChangeText={setFloor} keyboardType="numeric" />
+            <TextInput
+              style={styles.input}
+              value={floor}
+              onChangeText={setFloor}
+              keyboardType="numeric"
+              placeholder=""
+            />
 
             <Text style={styles.inputLabel}>Capacity</Text>
-            <TextInput style={styles.input} value={capacity} onChangeText={setCapacity} keyboardType="numeric" />
+            <TextInput
+              style={styles.input}
+              value={capacity}
+              onChangeText={setCapacity}
+              keyboardType="numeric"
+              placeholder=""
+            />
 
             <Pressable style={styles.primaryBtn} onPress={handleAddRoom} disabled={saving}>
-              <Text style={styles.primaryBtnText}>{saving ? "Adding..." : "Add Room"}</Text>
+              <Text style={styles.primaryBtnText}>
+                {saving ? "Adding..." : "Add Room"}
+              </Text>
             </Pressable>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 14, backgroundColor: "#E9F4F0" },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    backgroundColor: "#E9F4F0",
+  },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
-  summaryRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
-  summaryCard: { flex: 1, backgroundColor: "#fff", borderRadius: 12, padding: 12, alignItems: "center" },
-  summaryValue: { fontSize: 18, fontWeight: "800" },
-  summaryLabel: { marginTop: 4, fontSize: 12, color: "#5A6B66" },
+  // ── Summary ──
+  summaryRow: {
+  flexDirection: "row",
+  gap: 10,
+  marginBottom: 14,
+},
 
-  searchBox: { backgroundColor: "#fff", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
-  searchInput: { fontSize: 14 },
+summaryCard: {
+  flex: 1,
+  backgroundColor: "#fff",
+  borderRadius: 14,
+  padding: 12,
+  
+  // 👇 THIS is the key part
+  borderLeftWidth: 4,
 
-  filterRow: { flexDirection: "row", gap: 8, marginTop: 10, marginBottom: 10, flexWrap: "wrap" },
-  filterChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: "#fff" },
-  filterChipActive: { backgroundColor: "#2F6F5E" },
-  filterText: { fontSize: 12, color: "#2A3A36", fontWeight: "700" },
-  filterTextActive: { color: "#fff" },
+  // subtle shadow like screenshot
+  elevation: 2,
+  shadowColor: "#000",
+  shadowOpacity: 0.05,
+  shadowRadius: 4,
+  shadowOffset: { width: 0, height: 2 },
+},
 
+summaryInner: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 4,
+},
+
+summaryIconBox: {
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  backgroundColor: "#F4F6F5",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+summaryValue: {
+  fontSize: 20,
+  fontWeight: "800",
+  color: "#111",
+},
+
+summaryLabel: {
+  fontSize: 12,
+  color: "#666",
+},
+
+  // ── Search ──
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#333",
+  },
+
+  // ── Filter chips ──
+  filterRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 4,
+  },
+  filterChip: {
+  paddingHorizontal: 10,   // slightly smaller
+  paddingVertical: 5,      // slightly smaller
+  backgroundColor: "#fff",
+  borderRadius: 20,
+},
+  filterChipActive: {
+    backgroundColor: "#2F6F5E",
+  },
+  filterText: {
+    fontSize: 13,
+    color: "#444",
+  },
+  filterTextActive: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+
+  // ── Room Card ──
   roomCard: {
     backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 12,
+    padding: 14,
     marginBottom: 10,
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
+    borderRadius: 14,
   },
-  roomHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  roomTitle: { fontSize: 16, fontWeight: "800" },
-  roomSub: { marginTop: 4, color: "#5A6B66", fontSize: 12 },
-  roomStudents: { marginTop: 8, fontSize: 12, color: "#2A3A36" },
-  roomStudentsEmpty: { marginTop: 8, fontSize: 12, color: "#95A6A0" },
-
-  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  pillText: { fontSize: 11, fontWeight: "800" },
-
-  editIcon: {
+  roomHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  roomTitle: {
+    fontWeight: "700",
+    fontSize: 15,
+    color: "#111",
+  },
+  roomSub: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 8,
+  },
+  pill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  iconRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionIcon: {
     width: 34,
     height: 34,
-    borderRadius: 10,
+    borderRadius: 999,
     backgroundColor: "#EAF3F0",
     alignItems: "center",
     justifyContent: "center",
   },
 
+  // ── Student tags ──
+  studentTagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  studentTag: {
+    backgroundColor: "#EAF3F0",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  studentTagText: {
+    fontSize: 12,
+    color: "#2F6F5E",
+    fontWeight: "500",
+  },
+  studentAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#B2D8CE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  studentAvatarText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#2F6F5E",
+  },
+
+  // ── FAB ──
   fab: {
     position: "absolute",
     right: 16,
-    bottom: 18,
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    bottom: 20,
     backgroundColor: "#2F6F5E",
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 5,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
   },
-  fabText: { color: "#fff", fontSize: 28, fontWeight: "800", marginTop: -2 },
 
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" },
-  modalCard: { width: "88%", backgroundColor: "#fff", borderRadius: 16, padding: 14 },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  modalTitle: { fontSize: 16, fontWeight: "800" },
-
-  inputLabel: { marginTop: 10, fontSize: 12, color: "#5A6B66", fontWeight: "700" },
-  input: { marginTop: 6, borderWidth: 1, borderColor: "#DDE6E2", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
-
-  primaryBtn: { marginTop: 14, backgroundColor: "#2F6F5E", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontWeight: "800" },
+  // ── Modal ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "#00000055",
+    justifyContent: "center",
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 20,
+    padding: 24,
+    borderRadius: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
+    marginBottom: 18,
+  },
+  inputLabel: {
+    fontSize: 13,
+    color: "#444",
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#DDD",
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: "#111",
+    marginBottom: 14,
+  },
+  primaryBtn: {
+    backgroundColor: "#2F6F5E",
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  primaryBtnText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "700",
+    fontSize: 15,
+  },
 });

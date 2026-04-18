@@ -83,9 +83,9 @@ export default function ReceiptScreen({ route, navigation }) {
     return payment.roomNumber || "-";
   };
 
-  const getPhone = () => {
+  const getphoneNumber = () => {
     if (!payment) return "-";
-    return payment.phone || "+94 77 000 0000";
+    return payment.phoneNumber || "-";
   };
 
   const getReceivedBy = () => {
@@ -184,7 +184,7 @@ export default function ReceiptScreen({ route, navigation }) {
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Phone:</Text>
-          <Text style={styles.infoValue}>{getPhone()}</Text>
+          <Text style={styles.infoValue}>{getphoneNumber()}</Text>
         </View>
       </View>
 

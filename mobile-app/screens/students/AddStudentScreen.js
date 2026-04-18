@@ -17,7 +17,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import axios from "axios";
 import { validateStudentForm } from "../../utils/studentValidation";
 
-const API_BASE_URL = "http://192.168.1.4:5000"; 
+import api from "../../services/api";
 
 export default function AddStudentScreen({ navigation }) {
   const [fullName, setFullName] = useState("");
@@ -97,7 +97,7 @@ export default function AddStudentScreen({ navigation }) {
         leavingDate,
       };
 
-      await axios.post(`${API_BASE_URL}/api/students`, payload);
+      await api.post("/api/students", payload);
 
       Alert.alert("Success", "Student added successfully.");
       navigation.goBack();

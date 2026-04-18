@@ -15,7 +15,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-const API_BASE_URL = "http://192.168.1.4:5000";
+import api from "../../services/api";
+
+
+
 
 
 
@@ -25,7 +28,7 @@ export default function HomeScreen({ navigation }) {
 
 const fetchStudents = async () => {
   try {
-    const res = await axios.get(`${API_BASE_URL}/api/students`);
+    const res = await api.get("/api/students");
     const rawStudents = Array.isArray(res.data) ? res.data : res.data.students || [];
     setStudents(rawStudents);
   } catch (error) {

@@ -15,7 +15,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import axios from "axios";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const API_BASE_URL = "http://192.168.1.4:5000";
+import api from "../../services/api";
+
 
 export default function StudentProfileScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -28,7 +29,7 @@ export default function StudentProfileScreen({ navigation, route }) {
     try {
       setLoading(true);
 
-      const res = await axios.get(`${API_BASE_URL}/api/students/${studentId}`);
+      const res = await api.get(`/api/students/${studentId}`);
       const data = res.data?.student || res.data;
 
       if (!data) {

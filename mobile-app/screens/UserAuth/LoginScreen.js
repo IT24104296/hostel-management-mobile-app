@@ -17,7 +17,7 @@ import { validateLoginForm } from "../../utils/authValidation";
 const GREEN = "#3F9D86";
 
 
-const API_BASE_URL = "http://192.168.1.4:5000";
+import api from "../../services/api";
 
 export default function LoginScreen({ navigation }) {
   const [username, setUsername] = useState("");
@@ -39,7 +39,7 @@ const handleLogin = async () => {
   try {
     setLoading(true);
 
-    const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+    const res = await api.post("/api/auth/login", {
       username: username.trim(),
       password,
     });

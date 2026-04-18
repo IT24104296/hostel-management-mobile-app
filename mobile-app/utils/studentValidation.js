@@ -57,9 +57,7 @@ export const validateStudentForm = (data) => {
     errors.status = "Invalid status";
   }
 
-  if (!data.admissionDate) {
-    errors.admissionDate = "Admission date is required";
-  }
+ 
 
   if (data.admissionDate && data.leavingDate) {
     const admission = new Date(data.admissionDate);

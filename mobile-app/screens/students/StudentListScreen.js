@@ -15,7 +15,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
 
-const API_BASE_URL = "http://192.168.1.4:5000"; 
+import api from "../../services/api";
+
 const DARK_GREEN = "#4C8A73";
 const BG_TOP = "#F4FBF8";
 const BG_BOTTOM = "#BFE5DB";
@@ -30,7 +31,7 @@ export default function StudentListScreen({ navigation }) {
 
   const fetchStudents = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/students`);
+      const res = await api.get("/api/students");
       const rawStudents = Array.isArray(res.data) ? res.data : res.data.students || [];
 
       const normalized = rawStudents.map((item, index) => {
@@ -123,7 +124,7 @@ export default function StudentListScreen({ navigation }) {
           style: "destructive",
           onPress: async () => {
             try {
-              await axios.delete(`${API_BASE_URL}/api/students/${student._id}`);
+              await api.delete(`/api/students/${student._id}`);
               Alert.alert("Success", "Student deleted permanently.");
               fetchStudents();
             } catch (error) {
@@ -149,8 +150,8 @@ export default function StudentListScreen({ navigation }) {
           style: "destructive",
           onPress: async () => {
             try {
-              await axios.patch(
-                `${API_BASE_URL}/api/students/${student._id}/inactive`
+              await api.patch(
+                `/api/students/${student._id}/inactive`
               );
               Alert.alert("Success", "Student marked as inactive.");
               fetchStudents();

@@ -5,6 +5,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function ProfilePlaceholder({ navigation }) {
   const logout = async () => {
     await AsyncStorage.removeItem("token");
+    await AsyncStorage.removeItem("user");
+    
     navigation.reset({ index: 0, routes: [{ name: "Login" }] });
   };
 

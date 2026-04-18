@@ -16,8 +16,8 @@ import { validateSignupForm } from "../../utils/authValidation";
 
 const GREEN = "#3F9D86";
 
+import api from "../../services/api";
 
-const API_URL = "http://192.168.1.4:5000/api/auth/signup";
 
 
 
@@ -46,7 +46,7 @@ export default function SignupScreen({ navigation }) {
   try {
     setLoading(true);
 
-    await axios.post(API_URL, {
+    await api.post("/api/auth/signup", {
       name: username.trim(),
       email: email.trim(),
       password,

@@ -30,52 +30,51 @@ export default function StudentListScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const fetchStudents = async () => {
-    try {
-      const res = await api.get("/api/students");
-      const rawStudents = Array.isArray(res.data) ? res.data : res.data.students || [];
+  try {
+    const res = await api.get("/api/students");
+    const rawStudents = Array.isArray(res.data) 
+      ? res.data 
+      : res.data.students || res.data.data || [];
 
-      const normalized = rawStudents.map((item, index) => {
-        const name =
-          item.fullName ||
-          item.name ||
-          item.studentName ||
-          "Unnamed Student";
+    const normalized = rawStudents.map((item) => {
+      const name = item.fullName || item.name || "Unnamed Student";
 
-        const studentId =
-          item.studentId ||
-          item.studentID ||
-          `S${String(index + 1).padStart(3, "0")}`;
+      const studentId = item.studentId || item.studentID || `S${String(item._id || "").slice(-4)}`;
 
-        const nic = item.nic || item.NIC || "";
+      const nic = item.nic || item.NIC || "";
 
-        const statusRaw = (item.status || "Active").toString().toLowerCase();
-        const status = statusRaw === "inactive" ? "Inactive" : "Active";
+      const statusRaw = (item.status || "Active").toString().toLowerCase();
+      const status = statusRaw === "inactive" ? "Inactive" : "Active";
 
-        let roomNumber = "Not Assigned";
-        if (item.room?.roomNumber) roomNumber = item.room.roomNumber;
-        else if (item.room?.RoomNumber) roomNumber = item.room.RoomNumber;
-        else if (typeof item.room === "string") roomNumber = item.room;
-        else if (item.roomNumber) roomNumber = item.roomNumber;
+      
+      let roomNumber = "Not Assigned";
+      if (item.room?.roomNumber) {
+        roomNumber = item.room.roomNumber;
+      } else if (typeof item.room === "string") {
+        roomNumber = item.room;           
+      } else if (item.roomNumber) {
+        roomNumber = item.roomNumber;
+      }
 
-        return {
-          _id: item._id || studentId,
-          fullName: name,
-          studentId,
-          nic,
-          status,
-          roomNumber,
-        };
-      });
+      return {
+        _id: item._id,
+        fullName: name,
+        studentId,
+        nic,
+        status,
+        roomNumber,
+      };
+    });
 
-      setStudents(normalized);
-    } catch (error) {
-      console.log("Fetch students error:", error?.response?.data || error.message);
-      Alert.alert("Error", "Failed to load students.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    setStudents(normalized);
+  } catch (error) {
+    console.log("Fetch students error:", error?.response?.data || error.message);
+    Alert.alert("Error", "Failed to load students.");
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
   useFocusEffect(
     useCallback(() => {
@@ -267,21 +266,17 @@ export default function StudentListScreen({ navigation }) {
   colors={[BG_TOP, BG_BOTTOM]}
   style={[styles.container, { paddingTop: insets.top + 8 }]}
 >
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.topIconBtn}>
-          <Ionicons name="menu" size={26} color="#555" />
-        </TouchableOpacity>
-
-        <View style={styles.topRight}>
-          <TouchableOpacity style={styles.topIconBtn}>
-            <Ionicons name="notifications-outline" size={22} color="#333" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.topIconBtn}>
-            <Ionicons name="person-circle-outline" size={28} color="#A9AFBE" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <View style={[styles.topBar, { justifyContent: "flex-end" }]}>
+                <View style={styles.topRight}>
+                  <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
+                    <Ionicons name="notifications-outline" onPress={() => navigation.navigate("NotificationScreen")} size={22} color="#111" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
+                    <Ionicons name="person-circle-outline" onPress={() => navigation.navigate("Profile")} size={26} color="#111" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+      
 
       <Text style={styles.screenTitle}>Student Management</Text>
 

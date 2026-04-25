@@ -3,6 +3,18 @@ const cors = require("cors");
 
 const studentRoutes = require("./routes/student/studentRoutes");
 const authRoutes = require("./routes/UserAuth/auth.routes");
+const roomRoutes = require("./routes/room/roomRoutes");
+const paymentRoutes = require("./routes/payment/paymentRoutes");
+const contractRoutes = require("./routes/contract/contractRoutes");
+const notificationRoutes = require("./routes/notifications/notificationsRoutes");
+const financialRoutes = require("./routes/reports/financialRoutes");
+const expenseRoutes = require("./routes/reports/expenseRoutes");
+
+const cron = require("node-cron");
+
+
+const { generatePendingPayments } = require("./controllers/payment/paymentController");
+const { generateDueNotifications } = require("./controllers/notifications/notificationController");   // ← NEW
 
 const app = express();
 
@@ -15,5 +27,30 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/contracts", contractRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/financial", financialRoutes);
+app.use("/api/expenses", expenseRoutes);
+
+
+
+
+
+cron.schedule("06 11 * * *", async () => {
+  console.log(" Running daily pending payment check...");
+  await generatePendingPayments();
+});
+
+
+cron.schedule("06 11 * * *", async () => {
+  console.log(" Running daily due/overdue notification job...");
+  await generateDueNotifications();
+}, {
+  timezone: "Asia/Colombo"   
+});
+
+console.log(" Cron jobs scheduled successfully");
 
 module.exports = app;

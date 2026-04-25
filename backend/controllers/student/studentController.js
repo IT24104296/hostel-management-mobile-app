@@ -1,7 +1,6 @@
 const Student = require("../../models/student/Student");
 
 /*  Generate Student ID */
-
 const generateStudentId = async () => {
   const lastStudent = await Student.findOne().sort({ createdAt: -1 });
 
@@ -41,51 +40,60 @@ const createStudent = async (req, res) => {
       status,
       admissionDate,
       leavingDate,
+      monthlyRent,      // ← NEW
+      keyMoneyAmount,   // ← NEW
     } = req.body;
 
-    if (!fullName || !nic || !phone || !parentName || !parentPhone || !address) {
+    if (!fullName || !nic || !phone || !parentName || !parentPhone || !address || !admissionDate) {
       return res.status(400).json({
         message: "Please fill all required fields",
       });
     }
 
+    // New field validations
+    if (!monthlyRent || typeof monthlyRent !== "number" || monthlyRent <= 0) {
+      return res.status(400).json({ message: "Monthly rent is required and must be greater than 0" });
+    }
+    if (!keyMoneyAmount || typeof keyMoneyAmount !== "number" || keyMoneyAmount <= 0) {
+      return res.status(400).json({ message: "Key money amount is required and must be greater than 0" });
+    }
+
     const existingNic = await Student.findOne({ nic });
     if (existingNic) {
-      return res.status(409).json({
-        message: "NIC already exists",
-      });
+      return res.status(409).json({ message: "NIC already exists" });
     }
+
     if (!fullName || fullName.trim().length < 3) {
-  return res.status(400).json({ message: "Full name is invalid" });
-}
+      return res.status(400).json({ message: "Full name is invalid" });
+    }
 
-if (!isValidSriLankanNIC(nic)) {
-  return res.status(400).json({ message: "Invalid NIC format" });
-}
+    if (!isValidSriLankanNIC(nic)) {
+      return res.status(400).json({ message: "Invalid NIC format" });
+    }
 
-if (!isValidSriLankanPhone(phone)) {
-  return res.status(400).json({ message: "Invalid student phone number" });
-}
+    if (!isValidSriLankanPhone(phone)) {
+      return res.status(400).json({ message: "Invalid student phone number" });
+    }
 
-if (whatsapp && !isValidSriLankanPhone(whatsapp)) {
-  return res.status(400).json({ message: "Invalid WhatsApp number" });
-}
+    if (whatsapp && !isValidSriLankanPhone(whatsapp)) {
+      return res.status(400).json({ message: "Invalid WhatsApp number" });
+    }
 
-if (!address || address.trim().length < 5) {
-  return res.status(400).json({ message: "Address is invalid" });
-}
+    if (!address || address.trim().length < 5) {
+      return res.status(400).json({ message: "Address is invalid" });
+    }
 
-if (!parentName || parentName.trim().length < 3) {
-  return res.status(400).json({ message: "Parent name is invalid" });
-}
+    if (!parentName || parentName.trim().length < 3) {
+      return res.status(400).json({ message: "Parent name is invalid" });
+    }
 
-if (!isValidSriLankanPhone(parentPhone)) {
-  return res.status(400).json({ message: "Invalid parent phone number" });
-}
+    if (!isValidSriLankanPhone(parentPhone)) {
+      return res.status(400).json({ message: "Invalid parent phone number" });
+    }
 
-if (leavingDate && admissionDate && new Date(leavingDate) < new Date(admissionDate)) {
-  return res.status(400).json({ message: "Leaving date cannot be before admission date" });
-}
+    if (leavingDate && admissionDate && new Date(leavingDate) < new Date(admissionDate)) {
+      return res.status(400).json({ message: "Leaving date cannot be before admission date" });
+    }
 
     const studentId = await generateStudentId();
 
@@ -102,6 +110,9 @@ if (leavingDate && admissionDate && new Date(leavingDate) < new Date(admissionDa
       status: status || "active",
       admissionDate,
       leavingDate,
+      monthlyRent,       // ← NEW
+      keyMoneyAmount,    // ← NEW
+      // nextDueDate is intentionally NOT set here (will be set on first payment)
     });
 
     res.status(201).json({
@@ -119,7 +130,10 @@ if (leavingDate && admissionDate && new Date(leavingDate) < new Date(admissionDa
 /*  Get All Active Students */
 exports.getStudents = async (req, res) => {
   try {
-    const students = await Student.find({ isDeleted: false });
+    const students = await Student.find({ isDeleted: false })
+      .populate("room", "roomNumber")
+      .sort({ createdAt: -1 });
+
     res.json(students);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -150,6 +164,8 @@ exports.updateStudent = async (req, res) => {
     status,
     admissionDate,
     leavingDate,
+    monthlyRent,      // ← NEW
+    keyMoneyAmount,   // ← NEW
   } = req.body;
 
   if (!fullName || fullName.trim().length < 3) {
@@ -180,14 +196,16 @@ exports.updateStudent = async (req, res) => {
     return res.status(400).json({ message: "Invalid parent phone number" });
   }
 
-  if (
-    leavingDate &&
-    admissionDate &&
-    new Date(leavingDate) < new Date(admissionDate)
-  ) {
-    return res
-      .status(400)
-      .json({ message: "Leaving date cannot be before admission date" });
+  if (leavingDate && admissionDate && new Date(leavingDate) < new Date(admissionDate)) {
+    return res.status(400).json({ message: "Leaving date cannot be before admission date" });
+  }
+
+  // Optional validation for new fields if they are being updated
+  if (monthlyRent !== undefined && (typeof monthlyRent !== "number" || monthlyRent <= 0)) {
+    return res.status(400).json({ message: "Monthly rent must be greater than 0" });
+  }
+  if (keyMoneyAmount !== undefined && (typeof keyMoneyAmount !== "number" || keyMoneyAmount <= 0)) {
+    return res.status(400).json({ message: "Key money amount must be greater than 0" });
   }
 
   try {
@@ -205,6 +223,8 @@ exports.updateStudent = async (req, res) => {
         status,
         admissionDate,
         leavingDate,
+        monthlyRent,
+        keyMoneyAmount,
       },
       { new: true, runValidators: true }
     );
@@ -247,7 +267,6 @@ exports.deleteStudent = async (req, res) => {
     );
 
     res.json({ message: "Student removed successfully" });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -268,14 +287,10 @@ exports.searchStudent = async (req, res) => {
     });
 
     res.json(students);
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-;
-
 
 const deactivateStudent = async (req, res) => {
   try {

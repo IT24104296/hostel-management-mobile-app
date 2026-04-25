@@ -30,6 +30,11 @@ export default function AddStudentScreen({ navigation }) {
   const [parentName, setParentName] = useState("");
   const [parentPhone, setParentPhone] = useState("");
 
+  // ==================== NEW PAYMENT FIELDS ====================
+  const [monthlyRent, setMonthlyRent] = useState("");
+  const [keyMoneyAmount, setKeyMoneyAmount] = useState("");
+  // ===========================================================
+
   const [status, setStatus] = useState("active");
   const [admissionDate, setAdmissionDate] = useState(null);
   const [leavingDate, setLeavingDate] = useState(null);
@@ -51,32 +56,35 @@ export default function AddStudentScreen({ navigation }) {
     return `${year}-${month}-${day}`;
   };
 
- const validate = () => {
-  const formData = {
-    fullName,
-    nic,
-    phone,
-    whatsapp,
-    address,
-    university,
-    parentName,
-    parentPhone,
-    status,
-    admissionDate,
-    leavingDate,
+  const validate = () => {
+    const formData = {
+      fullName,
+      nic,
+      phone,
+      whatsapp,
+      address,
+      university,
+      parentName,
+      parentPhone,
+      status,
+      admissionDate,
+      leavingDate,
+      monthlyRent,      // ← NEW
+      keyMoneyAmount,   // ← NEW
+    };
+
+    const validationErrors = validateStudentForm(formData);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      const firstError = Object.values(validationErrors)[0];
+      Alert.alert("Error", firstError);
+      return false;
+    }
+
+    return true;
   };
 
-  const validationErrors = validateStudentForm(formData);
-  setErrors(validationErrors);
-
-  if (Object.keys(validationErrors).length > 0) {
-    const firstError = Object.values(validationErrors)[0];
-    Alert.alert("Error", firstError);
-    return false;
-  }
-
-  return true;
-};
   const handleSave = async () => {
     if (!validate()) return;
 
@@ -95,6 +103,8 @@ export default function AddStudentScreen({ navigation }) {
         status,
         admissionDate,
         leavingDate,
+        monthlyRent: Number(monthlyRent),       // ← NEW
+        keyMoneyAmount: Number(keyMoneyAmount), // ← NEW
       };
 
       await api.post("/api/students", payload);
@@ -120,10 +130,9 @@ export default function AddStudentScreen({ navigation }) {
         {/* Top Row */}
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.topBtn}>
-              <Ionicons name="arrow-back" size={24} color="#5A5A5A" />
+            <Ionicons name="arrow-back" size={24} color="#5A5A5A" />
           </TouchableOpacity>
-
-        <View style={{ width: 24 }} />
+          <View style={{ width: 24 }} />
         </View>
 
         <Text style={styles.screenTitle}>Add Student</Text>
@@ -132,151 +141,161 @@ export default function AddStudentScreen({ navigation }) {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Personal information</Text>
 
-         
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>Name</Text>
+              <TextInput
+                style={[styles.input, errors.fullName && styles.inputError]}
+                value={fullName}
+                onChangeText={(text) => {
+                  setFullName(text);
+                  if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: "" }));
+                }}
+              />
+              {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
+            </View>
 
-  <View style={styles.row}>
-    <View style={[styles.inputGroup, styles.half]}>
-      <Text style={styles.label}>Name</Text>
-      <TextInput
-        style={[styles.input, errors.fullName && styles.inputError]}
-        value={fullName}
-        onChangeText={(text) => {
-          setFullName(text);
-          if (errors.fullName) {
-            setErrors((prev) => ({ ...prev, fullName: "" }));
-          }
-        }}
-      />
-      {errors.fullName ? (
-        <Text style={styles.errorText}>{errors.fullName}</Text>
-      ) : null}
-    </View>
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>NIC</Text>
+              <TextInput
+                style={[styles.input, errors.nic && styles.inputError]}
+                value={nic}
+                onChangeText={(text) => {
+                  setNic(text);
+                  if (errors.nic) setErrors((prev) => ({ ...prev, nic: "" }));
+                }}
+                autoCapitalize="characters"
+              />
+              {errors.nic ? <Text style={styles.errorText}>{errors.nic}</Text> : null}
+            </View>
+          </View>
 
-    <View style={[styles.inputGroup, styles.half]}>
-      <Text style={styles.label}>NIC</Text>
-      <TextInput
-        style={[styles.input, errors.nic && styles.inputError]}
-        value={nic}
-        onChangeText={(text) => {
-          setNic(text);
-          if (errors.nic) {
-            setErrors((prev) => ({ ...prev, nic: "" }));
-          }
-        }}
-        autoCapitalize="characters"
-      />
-      {errors.nic ? (
-        <Text style={styles.errorText}>{errors.nic}</Text>
-      ) : null}
-    </View>
-  </View>
+          {/* ... rest of your personal fields (phone, whatsapp, address, university) remain unchanged ... */}
+          {/* (I kept them exactly as you had them) */}
 
-  <View style={styles.inputGroup}>
-    <Text style={styles.label}>Phone Number</Text>
-    <TextInput
-      style={[styles.input, errors.phone && styles.inputError]}
-      value={phone}
-      onChangeText={(text) => {
-        setPhone(text);
-        if (errors.phone) {
-          setErrors((prev) => ({ ...prev, phone: "" }));
-        }
-      }}
-      keyboardType="phone-pad"
-    />
-    {errors.phone ? (
-      <Text style={styles.errorText}>{errors.phone}</Text>
-    ) : null}
-  </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={[styles.input, errors.phone && styles.inputError]}
+              value={phone}
+              onChangeText={(text) => {
+                setPhone(text);
+                if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+              }}
+              keyboardType="phone-pad"
+            />
+            {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
+          </View>
 
-  <View style={styles.inputGroup}>
-    <Text style={styles.label}>Whatsapp Number</Text>
-    <TextInput
-      style={[styles.input, errors.whatsapp && styles.inputError]}
-      value={whatsapp}
-      onChangeText={(text) => {
-        setWhatsapp(text);
-        if (errors.whatsapp) {
-          setErrors((prev) => ({ ...prev, whatsapp: "" }));
-        }
-      }}
-      keyboardType="phone-pad"
-    />
-    {errors.whatsapp ? (
-      <Text style={styles.errorText}>{errors.whatsapp}</Text>
-    ) : null}
-  </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Whatsapp Number</Text>
+            <TextInput
+              style={[styles.input, errors.whatsapp && styles.inputError]}
+              value={whatsapp}
+              onChangeText={(text) => {
+                setWhatsapp(text);
+                if (errors.whatsapp) setErrors((prev) => ({ ...prev, whatsapp: "" }));
+              }}
+              keyboardType="phone-pad"
+            />
+            {errors.whatsapp ? <Text style={styles.errorText}>{errors.whatsapp}</Text> : null}
+          </View>
 
-  <View style={styles.inputGroup}>
-    <Text style={styles.label}>Address</Text>
-    <TextInput
-      style={[styles.input, errors.address && styles.inputError]}
-      value={address}
-      onChangeText={(text) => {
-        setAddress(text);
-        if (errors.address) {
-          setErrors((prev) => ({ ...prev, address: "" }));
-        }
-      }}
-    />
-    {errors.address ? (
-      <Text style={styles.errorText}>{errors.address}</Text>
-    ) : null}
-  </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Address</Text>
+            <TextInput
+              style={[styles.input, errors.address && styles.inputError]}
+              value={address}
+              onChangeText={(text) => {
+                setAddress(text);
+                if (errors.address) setErrors((prev) => ({ ...prev, address: "" }));
+              }}
+            />
+            {errors.address ? <Text style={styles.errorText}>{errors.address}</Text> : null}
+          </View>
 
-  <View style={styles.inputGroup}>
-    <Text style={styles.label}>University</Text>
-    <TextInput
-      style={styles.input}
-      value={university}
-      onChangeText={setUniversity}
-    />
-  </View>
-</View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>University</Text>
+            <TextInput
+              style={styles.input}
+              value={university}
+              onChangeText={setUniversity}
+            />
+          </View>
+        </View>
 
-<View style={styles.card}>
-  <Text style={styles.cardTitle}>Parent Details</Text>
+        {/* ==================== NEW PAYMENT CARD ==================== */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Payment Information</Text>
 
-  <View style={styles.inputGroup}>
-    <Text style={styles.label}>Name</Text>
-    <TextInput
-      style={[styles.input, errors.parentName && styles.inputError]}
-      value={parentName}
-      onChangeText={(text) => {
-        setParentName(text);
-        if (errors.parentName) {
-          setErrors((prev) => ({ ...prev, parentName: "" }));
-        }
-      }}
-    />
-    {errors.parentName ? (
-      <Text style={styles.errorText}>{errors.parentName}</Text>
-    ) : null}
-  </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Monthly Rent (LKR)</Text>
+            <TextInput
+              style={[styles.input, errors.monthlyRent && styles.inputError]}
+              value={monthlyRent}
+              onChangeText={(text) => {
+                setMonthlyRent(text);
+                if (errors.monthlyRent) setErrors((prev) => ({ ...prev, monthlyRent: "" }));
+              }}
+              keyboardType="numeric"
+              
+            />
+            {errors.monthlyRent ? <Text style={styles.errorText}>{errors.monthlyRent}</Text> : null}
+          </View>
 
-  <View style={styles.inputGroup}>
-    <Text style={styles.label}>Phone Number</Text>
-    <TextInput
-      style={[styles.input, errors.parentPhone && styles.inputError]}
-      value={parentPhone}
-      onChangeText={(text) => {
-        setParentPhone(text);
-        if (errors.parentPhone) {
-          setErrors((prev) => ({ ...prev, parentPhone: "" }));
-        }
-      }}
-      keyboardType="phone-pad"
-    />
-    {errors.parentPhone ? (
-      <Text style={styles.errorText}>{errors.parentPhone}</Text>
-    ) : null}
-  </View>
-</View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Key Money (LKR)</Text>
+            <TextInput
+              style={[styles.input, errors.keyMoneyAmount && styles.inputError]}
+              value={keyMoneyAmount}
+              onChangeText={(text) => {
+                setKeyMoneyAmount(text);
+                if (errors.keyMoneyAmount) setErrors((prev) => ({ ...prev, keyMoneyAmount: "" }));
+              }}
+              keyboardType="numeric"
+              
+            />
+            {errors.keyMoneyAmount ? <Text style={styles.errorText}>{errors.keyMoneyAmount}</Text> : null}
+          </View>
+        </View>
+        {/* =========================================================== */}
 
-<View style={styles.card}>
-  <Text style={styles.cardTitle}>Student Status</Text>
+        {/* Parent Details - unchanged */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Parent Details</Text>
+          {/* ... your existing parent fields ... */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Name</Text>
+            <TextInput
+              style={[styles.input, errors.parentName && styles.inputError]}
+              value={parentName}
+              onChangeText={(text) => {
+                setParentName(text);
+                if (errors.parentName) setErrors((prev) => ({ ...prev, parentName: "" }));
+              }}
+            />
+            {errors.parentName ? <Text style={styles.errorText}>{errors.parentName}</Text> : null}
+          </View>
 
-  <View style={styles.inputGroup}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={[styles.input, errors.parentPhone && styles.inputError]}
+              value={parentPhone}
+              onChangeText={(text) => {
+                setParentPhone(text);
+                if (errors.parentPhone) setErrors((prev) => ({ ...prev, parentPhone: "" }));
+              }}
+              keyboardType="phone-pad"
+            />
+            {errors.parentPhone ? <Text style={styles.errorText}>{errors.parentPhone}</Text> : null}
+          </View>
+        </View>
+
+        
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Student Status</Text>
+          <View style={styles.inputGroup}>
     <View style={styles.labelRow}>
       <Text style={styles.label}>Admission Date</Text>
 
@@ -398,62 +417,47 @@ export default function AddStudentScreen({ navigation }) {
   </View>
 </View>
         
-          <View style={styles.bottomButtonRow}>
-  <TouchableOpacity
-    onPress={() => navigation.goBack()}
-    style={styles.bottomCancelBtn}
-  >
-    <Text style={styles.bottomCancelText}>Cancel</Text>
-  </TouchableOpacity>
 
-  <TouchableOpacity
-    onPress={handleSave}
-    style={styles.bottomSaveBtn}
-    disabled={loading}
-  >
-    {loading ? (
-      <ActivityIndicator color="#fff" />
-    ) : (
-      <Text style={styles.bottomSaveText}>Save</Text>
-    )}
-  </TouchableOpacity>
-</View>        
+        <View style={styles.bottomButtonRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.bottomCancelBtn}>
+            <Text style={styles.bottomCancelText}>Cancel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleSave} style={styles.bottomSaveBtn} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.bottomSaveText}>Save</Text>}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
+      {/* Date Pickers (unchanged) */}
       {showAdmissionPicker && (
-  <DateTimePicker
-    value={admissionDate || new Date()}
-    mode="date"
-    display="default"
-    onChange={(event, selectedDate) => {
-      setShowAdmissionPicker(false);
+        <DateTimePicker
+          value={admissionDate || new Date()}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowAdmissionPicker(false);
+            if (event.type === "set" && selectedDate) setAdmissionDate(selectedDate);
+          }}
+        />
+      )}
 
-      if (event.type === "set" && selectedDate) {
-        setAdmissionDate(selectedDate);
-      }
-      
-    }}
-  />
-)}
-
-     {showLeavingPicker && (
-  <DateTimePicker
-    value={leavingDate || new Date()}
-    mode="date"
-    display="default"
-    onChange={(event, selectedDate) => {
-      setShowLeavingPicker(false);
-
-      if (event.type === "set" && selectedDate) {
-        setLeavingDate(selectedDate);
-      }
-    }}
-  />
-)}
-      
+      {showLeavingPicker && (
+        <DateTimePicker
+          value={leavingDate || new Date()}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowLeavingPicker(false);
+            if (event.type === "set" && selectedDate) setLeavingDate(selectedDate);
+          }}
+        />
+      )}
     </LinearGradient>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -674,3 +678,5 @@ inputError: {
 },
 
 });
+
+ 

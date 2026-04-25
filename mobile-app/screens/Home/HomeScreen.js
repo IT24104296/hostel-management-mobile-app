@@ -1,8 +1,6 @@
-import React from "react";
-import  { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Alert } from "react-native";
-import axios from "axios";
+import { Alert, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
@@ -17,46 +15,77 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import api from "../../services/api";
 
-
-
-
-
-
 export default function HomeScreen({ navigation }) {
   const [students, setStudents] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
 
-const fetchStudents = async () => {
-  try {
-    const res = await api.get("/api/students");
-    const rawStudents = Array.isArray(res.data) ? res.data : res.data.students || [];
-    setStudents(rawStudents);
-  } catch (error) {
-    console.log("Fetch students error:", error?.response?.data || error.message);
-    Alert.alert("Error", "Failed to load dashboard data.");
-  }
-};
+  const fetchData = async () => {
+    try {
+      // Fetch students
+      const studentsRes = await api.get("/api/students");
+      const rawStudents = Array.isArray(studentsRes.data) ? studentsRes.data : studentsRes.data.students || [];
+      setStudents(rawStudents);
 
-useFocusEffect(
-  useCallback(() => {
-    fetchStudents();
-  }, [])
-);
-  
-  const stats = useMemo(() => {
-  const totalStudents = students.length;
+      // Fetch rooms
+      const roomsRes = await api.get("/api/rooms");
+      setRooms(roomsRes.data || []);
 
-  
-  
-  return {
-    totalStudents,
-    totalRooms: 19,
-    occupied: 10,
-    available: 9,
-    pendingPayments: 5,
-    
+      // Fetch payment dashboard (backup)
+      const dashboardRes = await api.get("/api/payments/dashboard");
+      setDashboard(dashboardRes.data || {});
+    } catch (error) {
+      console.log("Fetch dashboard error:", error?.response?.data || error.message);
+      Alert.alert("Error", "Failed to load dashboard data.");
+    }
   };
-}, [students]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
+
+  const stats = useMemo(() => {
+    const totalStudents = students.length;
+
+    // Total Rooms
+    const totalRooms = rooms.length;
+
+    // Occupied Rooms
+    const occupied = rooms.filter(room =>
+      students.some(student => student.room?._id?.toString() === room._id?.toString())
+    ).length;
+
+    const available = totalRooms - occupied;
+
+    // Pending Payments - Direct calculation (most reliable)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const pendingPayments = students.filter(student => {
+      if (!student.nextDueDate) return false;
+      const dueDate = new Date(student.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate <= today;
+    }).length;
+
+    return {
+      totalStudents,
+      totalRooms,
+      occupied,
+      available,
+      pendingPayments,
+    };
+  }, [students, rooms]);
 
   const QuickCard = ({ title, img, onPress }) => (
     <TouchableOpacity style={styles.quickCard} onPress={onPress} activeOpacity={0.85}>
@@ -70,17 +99,20 @@ useFocusEffect(
       colors={["#F4FBF9", "#D9F2EC", "#BFE7DE"]}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#58A895"]} />
+        }
+      >
         <View style={[styles.container, { paddingTop: insets.top + 8 }]}></View>
-        {/* Top Bar */}
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-            <Ionicons name="menu" size={26} color="#111" />
-          </TouchableOpacity>
 
+                {/* Top Bar */}
+        <View style={[styles.topBar, { justifyContent: "flex-end" }]}>
           <View style={styles.topRight}>
             <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-              <Ionicons name="notifications-outline" onPress={() => navigation.navigate("Notifications")} size={22} color="#111" />
+              <Ionicons name="notifications-outline" onPress={() => navigation.navigate("NotificationScreen")} size={22} color="#111" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
               <Ionicons name="person-circle-outline" onPress={() => navigation.navigate("Profile")} size={26} color="#111" />
@@ -164,12 +196,12 @@ useFocusEffect(
           <QuickCard
             title="Reminders & Alerts"
             img={require("../../assets/dashboard/NotificationsIcon.png")}
-            onPress={() => navigation.navigate("Notifications")}
+            onPress={() => navigation.navigate("NotificationScreen")}
           />
           <QuickCard
             title="Financial Reporting"
             img={require("../../assets/dashboard/ReportsIcon.png")}
-            onPress={() => navigation.navigate("Reports")}
+            onPress={() => navigation.navigate("Financial")}
           />
           <QuickCard
             title="Contract & Stay"
@@ -186,7 +218,7 @@ useFocusEffect(
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 18},
+  content: { paddingHorizontal: 18 },
 
   topBar: {
     flexDirection: "row",

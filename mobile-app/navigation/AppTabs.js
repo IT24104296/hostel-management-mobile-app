@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import HomeScreen from "../screens/Home/HomeScreen";
 import StudentListScreen from "../screens/students/StudentListScreen";
-import RoomPlaceholder from "../screens/Home/RoomPlaceholder";
-import PaymentPlaceholder from "../screens/Home/PaymentPlaceholder";
+import RoomListScreen from "../screens/room/RoomListScreen";
+import PaymentDashboardScreen from "../screens/payment/PaymentDashboardScreen";
 
 
 
@@ -49,8 +49,8 @@ export default function AppTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Students" component={StudentListScreen} />
-      <Tab.Screen name="Rooms" component={RoomPlaceholder} />
-      <Tab.Screen name="Payments" component={PaymentPlaceholder} />
+      <Tab.Screen name="Rooms" component={RoomListScreen} />
+      <Tab.Screen name="Payments" component={PaymentDashboardScreen} />
      
       
       

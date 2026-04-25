@@ -32,8 +32,6 @@ const studentSchema = new mongoose.Schema(
     whatsapp: {
       type: String,
     },
-
-    
     address: {
       type: String,
       required: true,
@@ -44,6 +42,23 @@ const studentSchema = new mongoose.Schema(
       required: false,
       trim: true,
     },
+
+    
+    monthlyRent: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    keyMoneyAmount: {
+      type: Number,
+      required: true,          
+      min: 0,
+    },
+    nextDueDate: {
+      type: Date,
+      required: false,         
+    },
+    
 
     room: {
       type: mongoose.Schema.Types.ObjectId,
@@ -57,8 +72,7 @@ const studentSchema = new mongoose.Schema(
     },
     admissionDate: {
       type: Date,
-      required: false,
-      
+      required: true,
     },
     leavingDate: {
       type: Date,

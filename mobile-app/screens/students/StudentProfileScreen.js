@@ -12,11 +12,9 @@ import {
 } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import axios from "axios";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import api from "../../services/api";
-
 
 export default function StudentProfileScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -68,69 +66,56 @@ export default function StudentProfileScreen({ navigation, route }) {
   };
 
   const makePhoneNumber = (number) => {
-  if (!number) return "";
-  return String(number).replace(/[^\d+]/g, "");
-};
+    if (!number) return "";
+    return String(number).replace(/[^\d+]/g, "");
+  };
 
-const handleCall = async (number) => {
-  const phone = makePhoneNumber(number);
-
-  if (!phone) {
-    Alert.alert("Unavailable", "Phone number is not available.");
-    return;
-  }
-
-  const url = `tel:${phone}`;
-
-  try {
-    const supported = await Linking.canOpenURL(url);
-    if (supported) {
-      await Linking.openURL(url);
-    } else {
-      Alert.alert("Error", "Phone dialer could not be opened.");
+  const handleCall = async (number) => {
+    const phone = makePhoneNumber(number);
+    if (!phone) {
+      Alert.alert("Unavailable", "Phone number is not available.");
+      return;
     }
-  } catch (error) {
-    Alert.alert("Error", "Failed to open phone dialer.");
-  }
-};
+    const url = `tel:${phone}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) await Linking.openURL(url);
+      else Alert.alert("Error", "Phone dialer could not be opened.");
+    } catch (error) {
+      Alert.alert("Error", "Failed to open phone dialer.");
+    }
+  };
 
-const handleWhatsApp = async (number) => {
-  const phone = makePhoneNumber(number);
+  const handleWhatsApp = async (number) => {
+    const phone = makePhoneNumber(number);
+    if (!phone) {
+      Alert.alert("Unavailable", "Whatsapp number is not available.");
+      return;
+    }
 
-  if (!phone) {
-    Alert.alert("Unavailable", "Whatsapp number is not available.");
-    return;
-  }
+    let whatsappNumber = phone;
+    if (whatsappNumber.startsWith("+")) {
+      whatsappNumber = whatsappNumber.substring(1);
+    } else if (whatsappNumber.startsWith("0")) {
+      whatsappNumber = `94${whatsappNumber.substring(1)}`;
+    }
 
-  
-  let whatsappNumber = phone;
+    const appUrl = `whatsapp://send?phone=${whatsappNumber}`;
+    const webUrl = `https://wa.me/${whatsappNumber}`;
 
-if (whatsappNumber.startsWith("+")) {
-  whatsappNumber = whatsappNumber.substring(1);
-} else if (whatsappNumber.startsWith("0")) {
-  whatsappNumber = `94${whatsappNumber.substring(1)}`;
-}
-
-  const appUrl = `whatsapp://send?phone=${whatsappNumber}`;
-  const webUrl = `https://wa.me/${whatsappNumber}`;
-
-  try {
-    const supported = await Linking.canOpenURL(appUrl);
-
-    if (supported) {
-      await Linking.openURL(appUrl);
-    } else {
-      const webSupported = await Linking.canOpenURL(webUrl);
-      if (webSupported) {
-        await Linking.openURL(webUrl);
+    try {
+      const supported = await Linking.canOpenURL(appUrl);
+      if (supported) {
+        await Linking.openURL(appUrl);
       } else {
-        Alert.alert("Error", "WhatsApp could not be opened.");
+        const webSupported = await Linking.canOpenURL(webUrl);
+        if (webSupported) await Linking.openURL(webUrl);
+        else Alert.alert("Error", "WhatsApp could not be opened.");
       }
+    } catch (error) {
+      Alert.alert("Error", "Failed to open WhatsApp.");
     }
-  } catch (error) {
-    Alert.alert("Error", "Failed to open WhatsApp.");
-  }
-};
+  };
 
   const normalizedStatus =
     String(student?.status || "active").toLowerCase() === "inactive"
@@ -227,38 +212,38 @@ if (whatsappNumber.startsWith("+")) {
         </InfoCard>
 
         <InfoCard title="Contact Information">
-  <RowItem
-    label="Phone"
-    value={student?.phone}
-    icon={
-      <TouchableOpacity onPress={() => handleCall(student?.phone)}>
-        <Ionicons name="call" size={20} color="#111" />
-      </TouchableOpacity>
-    }
-  />
-  <RowItem
-    label="Whatsapp"
-    value={student?.whatsapp || "Not available"}
-    icon={
-      <TouchableOpacity onPress={() => handleWhatsApp(student?.whatsapp)}>
-        <Ionicons name="logo-whatsapp" size={22} color="#111" />
-      </TouchableOpacity>
-    }
-  />
-</InfoCard>
+          <RowItem
+            label="Phone"
+            value={student?.phone}
+            icon={
+              <TouchableOpacity onPress={() => handleCall(student?.phone)}>
+                <Ionicons name="call" size={20} color="#111" />
+              </TouchableOpacity>
+            }
+          />
+          <RowItem
+            label="Whatsapp"
+            value={student?.whatsapp || "Not available"}
+            icon={
+              <TouchableOpacity onPress={() => handleWhatsApp(student?.whatsapp)}>
+                <Ionicons name="logo-whatsapp" size={22} color="#111" />
+              </TouchableOpacity>
+            }
+          />
+        </InfoCard>
 
-<InfoCard title="Parent Details">
-  <RowItem label="Parent Name" value={student?.parentName} />
-  <RowItem
-    label="Parent Phone"
-    value={student?.parentPhone}
-    icon={
-      <TouchableOpacity onPress={() => handleCall(student?.parentPhone)}>
-        <Ionicons name="call" size={20} color="#111" />
-      </TouchableOpacity>
-    }
-  />
-</InfoCard>
+        <InfoCard title="Parent Details">
+          <RowItem label="Parent Name" value={student?.parentName} />
+          <RowItem
+            label="Parent Phone"
+            value={student?.parentPhone}
+            icon={
+              <TouchableOpacity onPress={() => handleCall(student?.parentPhone)}>
+                <Ionicons name="call" size={20} color="#111" />
+              </TouchableOpacity>
+            }
+          />
+        </InfoCard>
 
         {/* Student Status */}
         <InfoCard title="Student Status">
@@ -272,6 +257,28 @@ if (whatsappNumber.startsWith("+")) {
             }
           />
         </InfoCard>
+
+        {/* ==================== NEW PAYMENT INFORMATION CARD ==================== */}
+        <InfoCard title="Payment Information">
+          <RowItem
+            label="Monthly Rent"
+            value={student?.monthlyRent ? `LKR ${student.monthlyRent}` : "Not set"}
+          />
+          <RowItem
+            label="Key Money"
+            value={student?.keyMoneyAmount ? `LKR ${student.keyMoneyAmount}` : "Not set"}
+          />
+          <RowItem
+            label="Next Due Date"
+            value={
+              student?.nextDueDate
+                ? formatDate(student.nextDueDate)
+                : "Not set yet (record first payment)"
+            }
+            valueStyle={{ fontWeight: "700", color: student?.nextDueDate ? "#2C7C68" : "#D64545" }}
+          />
+        </InfoCard>
+        {/* ==================================================================== */}
 
         {/* Edit button */}
         <TouchableOpacity
@@ -289,6 +296,7 @@ if (whatsappNumber.startsWith("+")) {
 }
 
 const styles = StyleSheet.create({
+  // ==================== ALL YOUR ORIGINAL STYLES (UNCHANGED) ====================
   container: {
     flex: 1,
     paddingHorizontal: 10,
@@ -430,12 +438,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   rowRight: {
-  marginLeft: 10,
-  width: 34,
-  height: 34,
-  alignItems: "center",
-  justifyContent: "center",
-},
+    marginLeft: 10,
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   activeTextInline: {
     color: "#2C7C68",

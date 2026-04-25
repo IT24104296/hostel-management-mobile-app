@@ -14,6 +14,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+
 import {
   addRoom,
   getRooms,
@@ -24,6 +27,8 @@ import {
 const STATUS_FILTERS = ["All", "Available", "Occupied", "Partially Occupied"];
 
 export default function RoomListScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
+
   const [rooms, setRooms] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,12 +59,10 @@ export default function RoomListScreen({ navigation }) {
     }
   };
 
-  // ✅ runs first time
   useEffect(() => {
     load();
   }, []);
 
-  // ✅ runs EVERY time screen comes into focus (THIS FIXES YOUR ISSUE)
   useFocusEffect(
     useCallback(() => {
       load();
@@ -141,37 +144,23 @@ export default function RoomListScreen({ navigation }) {
 
   // ── SUMMARY CARD ────────────────────────────────────────────────────────────
   const SummaryCard = ({ label, value, icon, type }) => {
-  const config = {
-    total: {
-      border: "#CFE5DF",
-    },
-    occupied: {
-      border: "#E57373",
-    },
-    available: {
-      border: "#2F6F5E",
-    },
-  };
+    const config = {
+      total: { border: "#CFE5DF" },
+      occupied: { border: "#E57373" },
+      available: { border: "#2F6F5E" },
+    };
+    const c = config[type] || { border: "#CFE5DF" };
 
-  const c = config[type];
-
-  return (
-    <View
-      style={[
-        styles.summaryCard,
-        { borderLeftColor: c.border }
-      ]}
-    >
-      <View style={styles.summaryInner}>
-        <View style={styles.summaryIconBox}>
-          {icon}
+    return (
+      <View style={[styles.summaryCard, { borderLeftColor: c.border }]}>
+        <View style={styles.summaryInner}>
+          <View style={styles.summaryIconBox}>{icon}</View>
+          <Text style={styles.summaryValue}>{value ?? "-"}</Text>
         </View>
-        <Text style={styles.summaryValue}>{value ?? "-"}</Text>
+        <Text style={styles.summaryLabel}>{label}</Text>
       </View>
-      <Text style={styles.summaryLabel}>{label}</Text>
-    </View>
-  );
-};
+    );
+  };
 
   // ── STATUS PILL ──────────────────────────────────────────────────────────────
   const StatusPill = ({ status }) => {
@@ -188,30 +177,17 @@ export default function RoomListScreen({ navigation }) {
     );
   };
 
-  // Helper: extract student display name from any shape of data
+  // ✅ UPDATED: Now correctly uses fullName from your Student schema
   const getStudentName = (s) => {
-    // Populated object: s.student.name or s.student.firstName
-    if (s?.student) {
-      const st = s.student;
-      return (
-        st.name ||
-        `${st.firstName ?? ""} ${st.lastName ?? ""}`.trim() ||
-        st.username ||
-        st.email?.split("@")[0] ||
-        ""
-      );
-    }
-    // Flat object: s.name or s.firstName
+    if (!s) return "";
     return (
-      s?.name ||
-      `${s?.firstName ?? ""} ${s?.lastName ?? ""}`.trim() ||
-      s?.username ||
-      s?.email?.split("@")[0] ||
-      ""
+      s.fullName ||
+      `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() ||
+      s.name ||
+      `Student ${s._id?.slice(-4) || ""}`
     );
   };
 
-  // Helper: get initials for avatar fallback
   const getInitials = (name) => {
     if (!name) return "?";
     const parts = name.trim().split(" ");
@@ -222,12 +198,14 @@ export default function RoomListScreen({ navigation }) {
 
   // ── ROOM CARD ────────────────────────────────────────────────────────────────
   const RoomCard = ({ item }) => {
-    const assignedStudents = item.assignedStudents ?? [];
+    // Filter out deleted students (defensive)
+    const assignedStudents = (item.assignedStudents ?? []).filter(
+      (s) => s && !s.isDeleted
+    );
     const assignedCount = assignedStudents.length;
 
     return (
       <View style={styles.roomCard}>
-        {/* Top row: title + status pill + icons */}
         <View style={styles.roomHeaderRow}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, flexWrap: "wrap" }}>
             <Text style={styles.roomTitle}>Room {item.roomNumber}</Text>
@@ -249,27 +227,17 @@ export default function RoomListScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Sub-info */}
         <Text style={styles.roomSub}>
           Floor {item.floor}{"   "}Capacity {assignedCount}/{item.capacity}
         </Text>
 
-        {/* Student tags — show name pill if name found, else avatar circle */}
         {assignedStudents.length > 0 && (
           <View style={styles.studentTagRow}>
-            {assignedStudents.map((s, i) => {
+            {assignedStudents.map((s) => {
               const name = getStudentName(s);
-              if (name) {
-                return (
-                  <View key={i} style={styles.studentTag}>
-                    <Text style={styles.studentTagText}>{name}</Text>
-                  </View>
-                );
-              }
-              // Fallback: initials avatar circle
               return (
-                <View key={i} style={styles.studentAvatar}>
-                  <Text style={styles.studentAvatarText}>{getInitials(name)}</Text>
+                <View key={s._id} style={styles.studentTag}>
+                  <Text style={styles.studentTagText}>{name}</Text>
                 </View>
               );
             })}
@@ -279,42 +247,32 @@ export default function RoomListScreen({ navigation }) {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2F6F5E" />
-        <Text style={{ marginTop: 10, color: "#555" }}>Loading...</Text>
-      </View>
-    );
-  }
+  // ── LIST HEADER ─────────────────────────────────────────────────────────────
+  const ListHeader = useMemo(() => (
+    <>
+      <Text style={styles.screenTitle}>Room & Occupancy</Text>
 
-  return (
-    <View style={styles.container}>
-      {/* ── SUMMARY ROW ── */}
       <View style={styles.summaryRow}>
-  <SummaryCard
-  label="Total"
-  value={summary?.totalRooms}
-  type="total"
-  icon={<MaterialCommunityIcons name="door-open" size={18} color="#555" />}
-/>
+        <SummaryCard
+          label="Total"
+          value={summary?.totalRooms}
+          type="total"
+          icon={<MaterialCommunityIcons name="door-open" size={18} color="#555" />}
+        />
+        <SummaryCard
+          label="Occupied"
+          value={summary?.occupiedRooms}
+          type="occupied"
+          icon={<MaterialCommunityIcons name="door-closed" size={18} color="#B42318" />}
+        />
+        <SummaryCard
+          label="Available"
+          value={summary?.availableRooms}
+          type="available"
+          icon={<MaterialCommunityIcons name="bed" size={18} color="#2F6F5E" />}
+        />
+      </View>
 
-<SummaryCard
-  label="Occupied"
-  value={summary?.occupiedRooms}
-  type="occupied"
-  icon={<MaterialCommunityIcons name="door-closed" size={18} color="#B42318" />}
-/>
-
-<SummaryCard
-  label="Available"
-  value={summary?.availableRooms}
-  type="available"
-  icon={<MaterialCommunityIcons name="bed" size={18} color="#2F6F5E" />}
-/>
-</View>
-
-      {/* ── SEARCH ── */}
       <View style={styles.searchBox}>
         <Ionicons name="search-outline" size={16} color="#aaa" style={{ marginRight: 6 }} />
         <TextInput
@@ -323,14 +281,16 @@ export default function RoomListScreen({ navigation }) {
           value={search}
           onChangeText={setSearch}
           style={styles.searchInput}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
         />
       </View>
 
-      {/* ── FILTERS ── */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ marginVertical: 10, flexGrow: 0 }}
+        style={{ marginVertical: 12, flexGrow: 0 }}
         contentContainerStyle={styles.filterRow}
       >
         {STATUS_FILTERS.map((f) => (
@@ -345,28 +305,46 @@ export default function RoomListScreen({ navigation }) {
           </Pressable>
         ))}
       </ScrollView>
+    </>
+  ), [summary, search, filter]);
 
-      {/* ── LIST ── */}
+  return (
+    <LinearGradient
+      colors={["#E9F4F0", "#D4EDE6"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.gradientContainer}
+    >
       <FlatList
         data={filteredRooms}
         keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        ListHeaderComponent={ListHeader}
+        ListHeaderComponentStyle={{ paddingTop: insets.top + 8 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + 100,
+        }}
         renderItem={({ item }) => <RoomCard item={item} />}
         refreshing={loading}
         onRefresh={load}
         ListEmptyComponent={
-          <Text style={{ marginTop: 20, textAlign: "center", color: "#888" }}>
-            No rooms found.
-          </Text>
+          loading ? null : (
+            <Text style={{ marginTop: 40, textAlign: "center", color: "#888", fontSize: 16 }}>
+              No rooms found.
+            </Text>
+          )
         }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       />
 
-      {/* ── FAB ── */}
-      <Pressable style={styles.fab} onPress={() => setShowAdd(true)}>
+      <Pressable
+        style={[styles.fab, { bottom: insets.bottom + 20 }]}
+        onPress={() => setShowAdd(true)}
+      >
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
 
-      {/* ── ADD ROOM MODAL ── */}
       <Modal visible={showAdd} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowAdd(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
@@ -406,71 +384,36 @@ export default function RoomListScreen({ navigation }) {
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  gradientContainer: { flex: 1 },
+  summaryRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  summaryCard: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    backgroundColor: "#E9F4F0",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    borderLeftWidth: 4,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  // ── Summary ──
-  summaryRow: {
-  flexDirection: "row",
-  gap: 10,
-  marginBottom: 14,
-},
-
-summaryCard: {
-  flex: 1,
-  backgroundColor: "#fff",
-  borderRadius: 14,
-  padding: 12,
-  
-  // 👇 THIS is the key part
-  borderLeftWidth: 4,
-
-  // subtle shadow like screenshot
-  elevation: 2,
-  shadowColor: "#000",
-  shadowOpacity: 0.05,
-  shadowRadius: 4,
-  shadowOffset: { width: 0, height: 2 },
-},
-
-summaryInner: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 8,
-  marginBottom: 4,
-},
-
-summaryIconBox: {
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  backgroundColor: "#F4F6F5",
-  alignItems: "center",
-  justifyContent: "center",
-},
-
-summaryValue: {
-  fontSize: 20,
-  fontWeight: "800",
-  color: "#111",
-},
-
-summaryLabel: {
-  fontSize: 12,
-  color: "#666",
-},
-
-  // ── Search ──
+  summaryInner: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
+  summaryIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: "#F4F6F5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summaryValue: { fontSize: 20, fontWeight: "800", color: "#111" },
+  summaryLabel: { fontSize: 12, color: "#666" },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -479,37 +422,17 @@ summaryLabel: {
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: "#333",
-  },
-
-  // ── Filter chips ──
-  filterRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingRight: 4,
-  },
+  searchInput: { flex: 1, fontSize: 14, color: "#333" },
+  filterRow: { flexDirection: "row", gap: 8, paddingRight: 4 },
   filterChip: {
-  paddingHorizontal: 10,   // slightly smaller
-  paddingVertical: 5,      // slightly smaller
-  backgroundColor: "#fff",
-  borderRadius: 20,
-},
-  filterChipActive: {
-    backgroundColor: "#2F6F5E",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: "#fff",
+    borderRadius: 20,
   },
-  filterText: {
-    fontSize: 13,
-    color: "#444",
-  },
-  filterTextActive: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-
-  // ── Room Card ──
+  filterChipActive: { backgroundColor: "#2F6F5E" },
+  filterText: { fontSize: 13, color: "#444" },
+  filterTextActive: { color: "#fff", fontWeight: "600" },
   roomCard: {
     backgroundColor: "#fff",
     padding: 14,
@@ -522,29 +445,11 @@ summaryLabel: {
     alignItems: "center",
     marginBottom: 4,
   },
-  roomTitle: {
-    fontWeight: "700",
-    fontSize: 15,
-    color: "#111",
-  },
-  roomSub: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 8,
-  },
-  pill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-  },
-  pillText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  iconRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
+  roomTitle: { fontWeight: "700", fontSize: 15, color: "#111" },
+  roomSub: { fontSize: 12, color: "#666", marginBottom: 8 },
+  pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  pillText: { fontSize: 11, fontWeight: "600" },
+  iconRow: { flexDirection: "row", gap: 8 },
   actionIcon: {
     width: 34,
     height: 34,
@@ -553,24 +458,14 @@ summaryLabel: {
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // ── Student tags ──
-  studentTagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
+  studentTagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   studentTag: {
     backgroundColor: "#EAF3F0",
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  studentTagText: {
-    fontSize: 12,
-    color: "#2F6F5E",
-    fontWeight: "500",
-  },
+  studentTagText: { fontSize: 12, color: "#2F6F5E", fontWeight: "500" },
   studentAvatar: {
     width: 30,
     height: 30,
@@ -579,17 +474,10 @@ summaryLabel: {
     alignItems: "center",
     justifyContent: "center",
   },
-  studentAvatarText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#2F6F5E",
-  },
-
-  // ── FAB ──
+  studentAvatarText: { fontSize: 11, fontWeight: "700", color: "#2F6F5E" },
   fab: {
     position: "absolute",
     right: 16,
-    bottom: 20,
     backgroundColor: "#2F6F5E",
     width: 52,
     height: 52,
@@ -602,30 +490,15 @@ summaryLabel: {
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
   },
-
-  // ── Modal ──
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "#00000055",
-    justifyContent: "center",
-  },
+  modalOverlay: { flex: 1, backgroundColor: "#00000055", justifyContent: "center" },
   modalCard: {
     backgroundColor: "#fff",
     marginHorizontal: 20,
     padding: 24,
     borderRadius: 20,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111",
-    marginBottom: 18,
-  },
-  inputLabel: {
-    fontSize: 13,
-    color: "#444",
-    marginBottom: 6,
-  },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#111", marginBottom: 18 },
+  inputLabel: { fontSize: 13, color: "#444", marginBottom: 6 },
   input: {
     borderWidth: 1,
     borderColor: "#DDD",
@@ -641,10 +514,12 @@ summaryLabel: {
     borderRadius: 12,
     marginTop: 4,
   },
-  primaryBtnText: {
-    color: "#fff",
-    textAlign: "center",
+  primaryBtnText: { color: "#fff", textAlign: "center", fontWeight: "700", fontSize: 15 },
+  screenTitle: {
+    fontSize: 28,
     fontWeight: "700",
-    fontSize: 15,
+    color: "#111",
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
 });

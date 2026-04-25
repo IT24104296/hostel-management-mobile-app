@@ -9,7 +9,11 @@ import {
   Alert,
   Modal,
   FlatList,
+  ScrollView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+
 import {
   getRoomById,
   updateRoom,
@@ -17,13 +21,17 @@ import {
   removeStudent,
 } from "../../services/room/roomService";
 
+import api from "../../services/api";
+
 export default function EditRoomScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets();
   const { roomId } = route.params;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [room, setRoom] = useState(null);
+  const [allStudents, setAllStudents] = useState([]);
 
   const [roomNumber, setRoomNumber] = useState("");
   const [floor, setFloor] = useState("");
@@ -34,69 +42,69 @@ export default function EditRoomScreen({ route, navigation }) {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [assigning, setAssigning] = useState(false);
 
-  const STUDENTS = useMemo(
-    () => [
-      "Amaya Silva",
-      "Sana Sheikh",
-      "Nethmi Perera",
-      "Tharushi Bandara",
-      "Dilini Rathnayaka",
-      "Saranya Peris",
-      "Mihiri Perera",
-      "Fathima Nila",
-      "Ayesha Rahman",
-      "Hiruni Jayasinghe",
-    ],
-    []
-  );
-
-  const loadRoom = async () => {
+  // Load room + all students
+  const loadData = async () => {
     try {
       setLoading(true);
+      const [roomResponse, studentsResponse] = await Promise.all([
+        api.get(`/api/rooms/${roomId}`),
+        api.get("/api/students"),
+      ]);
 
-      const data = await getRoomById(roomId);
+      const roomData = roomResponse.data;
+      const studentsData = studentsResponse.data;
 
-      setRoom(data);
-      setRoomNumber(String(data.roomNumber ?? ""));
-      setFloor(String(data.floor ?? ""));
-      setCapacity(String(data.capacity ?? ""));
+      setRoom(roomData);
+      setAllStudents(studentsData || []);
 
-      navigation.setOptions({
-        title: `Edit Room - ${data.roomNumber}`,
-      });
+      setRoomNumber(String(roomData.roomNumber ?? ""));
+      setFloor(String(roomData.floor ?? ""));
+      setCapacity(String(roomData.capacity ?? ""));
+
+      navigation.setOptions({ title: `Edit Room - ${roomData.roomNumber}` });
     } catch (e) {
-      console.log(e?.message);
-      Alert.alert("Error", "Failed to load room details.");
+      console.log(e);
+      Alert.alert("Error", "Failed to load data.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadRoom();
+    loadData();
   }, [roomId]);
 
-  const statusPillStyle = useMemo(() => {
-    const s = room?.status;
-    if (s === "Available") return { bg: "#E7F6ED", fg: "#1C7C3A" };
-    if (s === "Occupied") return { bg: "#FDECEC", fg: "#B42318" };
-    return { bg: "#FFF5D9", fg: "#9A6B00" };
-  }, [room?.status]);
+  const getStudentName = (student) => {
+    if (!student) return "Unknown Student";
+    return (
+      student.fullName ||
+      student.name ||
+      `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
+      `Student ${student._id?.slice(-4) || ""}`
+    );
+  };
 
   const assignedCount = room?.assignedStudents?.length ?? 0;
   const cap = room?.capacity ?? 0;
 
+  // Only show students who are completely free
   const availableCandidates = useMemo(() => {
-    const assigned = new Set(
-      (room?.assignedStudents ?? []).map((x) => x.toLowerCase())
+    const assignedToThisRoom = new Set(
+      (room?.assignedStudents ?? []).map((s) => s?._id || s)
     );
-    return STUDENTS.filter((name) => !assigned.has(name.toLowerCase()));
-  }, [room?.assignedStudents, STUDENTS]);
+
+    return allStudents.filter((student) => {
+      if (assignedToThisRoom.has(student._id)) return false;
+      if (student.room) return false;           // already in another room
+      if (student.isDeleted) return false;
+      return true;
+    });
+  }, [allStudents, room?.assignedStudents]);
 
   const filteredCandidates = useMemo(() => {
     const q = studentSearch.trim().toLowerCase();
-    return availableCandidates.filter((name) =>
-      name.toLowerCase().includes(q)
+    return availableCandidates.filter((s) =>
+      getStudentName(s).toLowerCase().includes(q)
     );
   }, [availableCandidates, studentSearch]);
 
@@ -106,64 +114,25 @@ export default function EditRoomScreen({ route, navigation }) {
     const capNum = Number(capacity);
 
     if (!rn || Number.isNaN(fl) || Number.isNaN(capNum) || capNum < 1) {
-      Alert.alert(
-        "Invalid",
-        "Please enter valid Room Number, Floor and Capacity."
-      );
-      return;
-    }
-
-    if (capNum < assignedCount) {
-      Alert.alert(
-        "Capacity too low",
-        `This room already has ${assignedCount} assigned students. Increase capacity or remove students first.`
-      );
+      Alert.alert("Invalid", "Please enter valid Room Number, Floor and Capacity.");
       return;
     }
 
     try {
       setSaving(true);
-      const updated = await updateRoom(roomId, {
-        roomNumber: rn,
-        floor: fl,
-        capacity: capNum,
-      });
-      setRoom(updated);
+      await updateRoom(roomId, { roomNumber: rn, floor: fl, capacity: capNum });
+      await loadData();                    // ← Re-fetch full populated room
       Alert.alert("Saved", "Room details updated.");
     } catch (e) {
-      const msg = e?.response?.data?.message || "Failed to save.";
-      Alert.alert("Error", msg);
+      Alert.alert("Error", e?.response?.data?.message || "Failed to save.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRemove = async (name) => {
-    Alert.alert("Remove student", `Remove ${name} from this room?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const updated = await removeStudent(roomId, name);
-            setRoom(updated);
-          } catch (e) {
-            const msg =
-              e?.response?.data?.message || "Failed to remove student.";
-            Alert.alert("Error", msg);
-          }
-        },
-      },
-    ]);
-  };
-
   const handleOpenAssign = () => {
     if ((room?.assignedStudents?.length ?? 0) >= (room?.capacity ?? 0)) {
-      Alert.alert(
-        "Room full",
-        "This room is fully occupied. Remove a student to assign a new one."
-      );
+      Alert.alert("Room full", "This room is already at full capacity.");
       return;
     }
     setStudentSearch("");
@@ -172,151 +141,159 @@ export default function EditRoomScreen({ route, navigation }) {
   };
 
   const handleConfirmAssign = async () => {
-    if (!selectedStudent) {
-      Alert.alert("Select a student", "Please select a student to assign.");
-      return;
-    }
+    if (!selectedStudent) return Alert.alert("Select a student");
 
     try {
       setAssigning(true);
-      const updated = await assignStudent(roomId, selectedStudent);
-      setRoom(updated);
+      await assignStudent(roomId, selectedStudent._id);
+      await loadData();                    // ← Re-fetch full populated room
       setShowAssign(false);
+      setSelectedStudent(null);
     } catch (e) {
-      const msg = e?.response?.data?.message || "Failed to assign student.";
-      Alert.alert("Error", msg);
+      Alert.alert("Error", e?.response?.data?.message || "Failed to assign student.");
     } finally {
       setAssigning(false);
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 10 }}>Loading room...</Text>
-      </View>
-    );
-  }
-
-  if (!room) {
-    return (
-      <View style={styles.center}>
-        <Text>Room not found.</Text>
-      </View>
-    );
-  }
+  const handleRemoveStudent = async (student) => {
+    Alert.alert("Remove student", `Remove ${getStudentName(student)}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await removeStudent(roomId, student._id);
+            await loadData();               // ← Re-fetch full populated room
+          } catch (e) {
+            Alert.alert("Error", e?.response?.data?.message || "Failed to remove student.");
+          }
+        },
+      },
+    ]);
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.topRow}>
-        <Text style={styles.headerTitle}>Edit Room - Room {room.roomNumber}</Text>
-        <Pressable
-          style={styles.saveBtn}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          <Text style={styles.saveBtnText}>
-            {saving ? "Saving..." : "Save"}
-          </Text>
-        </Pressable>
-      </View>
-
-      <View
-        style={[styles.statusPill, { backgroundColor: statusPillStyle.bg }]}
+    <LinearGradient colors={["#E9F4F0", "#D4EDE6"]} style={styles.gradientContainer}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + 40,
+        }}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.statusText, { color: statusPillStyle.fg }]}>
-          Status: {room.status}
-        </Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Room Details</Text>
-
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Room Number</Text>
-            <TextInput
-              style={styles.input}
-              value={roomNumber}
-              onChangeText={setRoomNumber}
-            />
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#2F6F5E" />
+            <Text style={{ marginTop: 12, color: "#555" }}>Loading room...</Text>
           </View>
-
-          <View style={{ width: 12 }} />
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Floor</Text>
-            <TextInput
-              style={styles.input}
-              value={floor}
-              onChangeText={setFloor}
-              keyboardType="numeric"
-            />
+        ) : !room ? (
+          <View style={styles.center}>
+            <Text style={{ color: "#666", fontSize: 16 }}>Room not found.</Text>
           </View>
-        </View>
-
-        <Text style={styles.label}>Capacity</Text>
-        <TextInput
-          style={styles.input}
-          value={capacity}
-          onChangeText={setCapacity}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>
-          Assigned Students ({assignedCount}/{cap})
-        </Text>
-
-        {assignedCount === 0 ? (
-          <Text style={{ color: "#95A6A0", marginTop: 6 }}>
-            No students assigned.
-          </Text>
         ) : (
-          <View style={{ marginTop: 10, gap: 8 }}>
-            {room.assignedStudents.map((name) => (
-              <View key={name} style={styles.studentRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {name.trim().charAt(0).toUpperCase()}
-                  </Text>
+          <>
+            <View style={styles.topRow}>
+              <Text style={styles.headerTitle}>Edit Room - Room {room.roomNumber}</Text>
+              <Pressable style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+                <Text style={styles.saveBtnText}>{saving ? "Saving..." : "Save"}</Text>
+              </Pressable>
+            </View>
+
+            <View
+              style={[
+                styles.statusPill,
+                {
+                  backgroundColor:
+                    room.status === "Available"
+                      ? "#E7F6ED"
+                      : room.status === "Occupied"
+                      ? "#FDECEC"
+                      : "#FFF5D9",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color:
+                      room.status === "Available"
+                        ? "#1C7C3A"
+                        : room.status === "Occupied"
+                        ? "#B42318"
+                        : "#9A6B00",
+                  },
+                ]}
+              >
+                Status: {room.status}
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Room Details</Text>
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Room Number</Text>
+                  <TextInput style={styles.input} value={roomNumber} onChangeText={setRoomNumber} />
                 </View>
-
-                <Text style={{ flex: 1, fontWeight: "700" }}>{name}</Text>
-
-                <Pressable
-                  style={styles.removeBtn}
-                  onPress={() => handleRemove(name)}
-                >
-                  <Text style={styles.removeBtnText}>Remove</Text>
-                </Pressable>
+                <View style={{ width: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Floor</Text>
+                  <TextInput style={styles.input} value={floor} onChangeText={setFloor} keyboardType="numeric" />
+                </View>
               </View>
-            ))}
-          </View>
+              <Text style={styles.label}>Capacity</Text>
+              <TextInput style={styles.input} value={capacity} onChangeText={setCapacity} keyboardType="numeric" />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                Assigned Students ({assignedCount}/{cap})
+              </Text>
+
+              {assignedCount === 0 ? (
+                <Text style={{ color: "#95A6A0", marginTop: 6 }}>No students assigned.</Text>
+              ) : (
+                <View style={{ marginTop: 10, gap: 8 }}>
+                  {room.assignedStudents
+                    .filter((student) => student && !student.isDeleted)
+                    .map((student) => (
+                      <View key={student._id} style={styles.studentRow}>
+                        <View style={styles.avatar}>
+                          <Text style={styles.avatarText}>
+                            {getStudentName(student)[0].toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={{ flex: 1, fontWeight: "700" }}>{getStudentName(student)}</Text>
+                        <Pressable style={styles.removeBtn} onPress={() => handleRemoveStudent(student)}>
+                          <Text style={styles.removeBtnText}>Remove</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                </View>
+              )}
+
+              <Pressable style={styles.assignBtn} onPress={handleOpenAssign}>
+                <Text style={styles.assignBtnText}>Assign Student</Text>
+              </Pressable>
+            </View>
+          </>
         )}
+      </ScrollView>
 
-        <Pressable style={styles.assignBtn} onPress={handleOpenAssign}>
-          <Text style={styles.assignBtnText}>Assign Student</Text>
-        </Pressable>
-      </View>
-
-      <Modal
-        visible={showAssign}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowAssign(false)}
-      >
+      {/* Modal */}
+      <Modal visible={showAssign} transparent animationType="slide" onRequestClose={() => setShowAssign(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              Assigned Student to Room {room.roomNumber}
-            </Text>
+            <Text style={styles.modalTitle}>Assign Student to Room {room?.roomNumber}</Text>
 
             <View style={styles.searchBox}>
               <TextInput
-                placeholder="Search"
+                placeholder="Search students..."
                 value={studentSearch}
                 onChangeText={setStudentSearch}
                 style={styles.searchInput}
@@ -325,39 +302,22 @@ export default function EditRoomScreen({ route, navigation }) {
 
             <FlatList
               data={filteredCandidates}
-              keyExtractor={(item) => item}
-              style={{ marginTop: 10 }}
+              keyExtractor={(item) => item._id}
+              style={{ marginTop: 10, maxHeight: 420 }}
               renderItem={({ item }) => {
-                const selected = selectedStudent === item;
-
+                const selected = selectedStudent?._id === item._id;
                 return (
                   <Pressable
-                    style={[
-                      styles.candidateRow,
-                      selected && styles.candidateRowSelected,
-                    ]}
+                    key={item._id}   // ← extra safety
+                    style={[styles.candidateRow, selected && styles.candidateRowSelected]}
                     onPress={() => setSelectedStudent(item)}
                   >
                     <View style={styles.avatarSmall}>
-                      <Text style={styles.avatarTextSmall}>
-                        {item.charAt(0).toUpperCase()}
-                      </Text>
+                      <Text style={styles.avatarTextSmall}>{getStudentName(item)[0].toUpperCase()}</Text>
                     </View>
-
-                    <Text style={{ flex: 1, fontWeight: "700" }}>{item}</Text>
-
-                    <View
-                      style={[
-                        styles.selectPill,
-                        selected && styles.selectPillSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.selectPillText,
-                          selected && styles.selectPillTextSelected,
-                        ]}
-                      >
+                    <Text style={{ flex: 1, fontWeight: "700" }}>{getStudentName(item)}</Text>
+                    <View style={[styles.selectPill, selected && styles.selectPillSelected]}>
+                      <Text style={[styles.selectPillText, selected && styles.selectPillTextSelected]}>
                         {selected ? "Selected" : "Select"}
                       </Text>
                     </View>
@@ -365,246 +325,75 @@ export default function EditRoomScreen({ route, navigation }) {
                 );
               }}
               ListEmptyComponent={
-                <Text style={{ marginTop: 10 }}>No students found.</Text>
+                <Text style={{ marginTop: 20, textAlign: "center", color: "#666" }}>No students found.</Text>
               }
             />
 
-            <Pressable
-              style={styles.confirmBtn}
-              onPress={handleConfirmAssign}
-              disabled={assigning}
-            >
+            <Pressable style={styles.confirmBtn} onPress={handleConfirmAssign} disabled={assigning}>
               <Text style={styles.confirmBtnText}>
-                {assigning ? "Confirming..." : "Confirm"}
+                {assigning ? "Assigning..." : "Confirm Assignment"}
               </Text>
             </Pressable>
 
-            <Pressable
-              onPress={() => setShowAssign(false)}
-              style={{ marginTop: 10 }}
-            >
-              <Text
-                style={{
-                  textAlign: "center",
-                  color: "#2F6F5E",
-                  fontWeight: "800",
-                }}
-              >
-                Cancel
-              </Text>
+            <Pressable onPress={() => setShowAssign(false)} style={{ marginTop: 12 }}>
+              <Text style={{ textAlign: "center", color: "#2F6F5E", fontWeight: "800" }}>Cancel</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 14,
-    backgroundColor: "#E9F4F0",
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  gradientContainer: { flex: 1 },
+  scrollView: { flex: 1 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 300 },
 
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    flex: 1,
-  },
+  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  headerTitle: { fontSize: 20, fontWeight: "700", color: "#111", flex: 1 },
 
-  saveBtn: {
-    backgroundColor: "#2F6F5E",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  saveBtnText: {
-    color: "#fff",
-    fontWeight: "900",
-  },
+  saveBtn: { backgroundColor: "#2F6F5E", paddingHorizontal: 18, paddingVertical: 9, borderRadius: 10 },
+  saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
-  statusPill: {
-    marginTop: 10,
-    alignSelf: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  statusText: {
-    fontWeight: "900",
-    fontSize: 12,
-  },
+  statusPill: { marginTop: 14, alignSelf: "center", paddingHorizontal: 18, paddingVertical: 7, borderRadius: 999 },
+  statusText: { fontWeight: "700", fontSize: 13 },
 
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-  },
+  card: { backgroundColor: "#fff", borderRadius: 14, padding: 16, marginTop: 16 },
+  cardTitle: { fontSize: 15, fontWeight: "700", color: "#111", marginBottom: 8 },
 
-  row: {
-    flexDirection: "row",
-    marginTop: 10,
-  },
-  label: {
-    marginTop: 10,
-    fontSize: 12,
-    color: "#5A6B66",
-    fontWeight: "800",
-  },
-  input: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: "#DDE6E2",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
-  },
+  row: { flexDirection: "row", marginTop: 8 },
+  label: { marginTop: 14, fontSize: 13, color: "#5A6B66", fontWeight: "700" },
+  input: { marginTop: 6, borderWidth: 1, borderColor: "#DDE6E2", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
 
-  studentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: "#EAF3F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontWeight: "900",
-    color: "#2F6F5E",
-  },
+  studentRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  avatar: { width: 36, height: 36, borderRadius: 10, backgroundColor: "#EAF3F0", alignItems: "center", justifyContent: "center" },
+  avatarText: { fontWeight: "700", color: "#2F6F5E", fontSize: 16 },
 
-  removeBtn: {
-    backgroundColor: "#FDECEC",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  removeBtnText: {
-    color: "#B42318",
-    fontWeight: "900",
-    fontSize: 12,
-  },
+  removeBtn: { backgroundColor: "#FDECEC", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999 },
+  removeBtnText: { color: "#B42318", fontWeight: "700", fontSize: 13 },
 
-  assignBtn: {
-    marginTop: 12,
-    backgroundColor: "#2F6F5E",
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  assignBtnText: {
-    color: "#fff",
-    fontWeight: "900",
-  },
+  assignBtn: { marginTop: 16, backgroundColor: "#2F6F5E", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  assignBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    width: "100%",
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    padding: 14,
-    maxHeight: "85%",
-  },
-  modalTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "flex-end" },
+  modalCard: { width: "100%", backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: "88%" },
+  modalTitle: { fontSize: 17, fontWeight: "700", color: "#111", marginBottom: 12 },
 
-  searchBox: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#DDE6E2",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  searchInput: {
-    fontSize: 14,
-  },
+  searchBox: { borderWidth: 1, borderColor: "#DDE6E2", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  searchInput: { fontSize: 15 },
 
-  candidateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 10,
-  },
-  candidateRowSelected: {
-    backgroundColor: "#F2FBF8",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-  },
+  candidateRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
+  candidateRowSelected: { backgroundColor: "#F2FBF8" },
 
-  avatarSmall: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    backgroundColor: "#EAF3F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarTextSmall: {
-    fontWeight: "900",
-    color: "#2F6F5E",
-  },
+  avatarSmall: { width: 32, height: 32, borderRadius: 999, backgroundColor: "#EAF3F0", alignItems: "center", justifyContent: "center" },
+  avatarTextSmall: { fontWeight: "700", color: "#2F6F5E", fontSize: 15 },
 
-  selectPill: {
-    borderWidth: 1,
-    borderColor: "#CFE1DB",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  selectPillSelected: {
-    backgroundColor: "#2F6F5E",
-    borderColor: "#2F6F5E",
-  },
-  selectPillText: {
-    fontWeight: "900",
-    fontSize: 12,
-    color: "#2A3A36",
-  },
-  selectPillTextSelected: {
-    color: "#fff",
-  },
+  selectPill: { borderWidth: 1, borderColor: "#CFE1DB", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999 },
+  selectPillSelected: { backgroundColor: "#2F6F5E", borderColor: "#2F6F5E" },
+  selectPillText: { fontWeight: "700", fontSize: 13, color: "#2A3A36" },
+  selectPillTextSelected: { color: "#fff" },
 
-  confirmBtn: {
-    marginTop: 12,
-    backgroundColor: "#2F6F5E",
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  confirmBtnText: {
-    color: "#fff",
-    fontWeight: "900",
-  },
+  confirmBtn: { marginTop: 20, backgroundColor: "#2F6F5E", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  confirmBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });

@@ -6,16 +6,26 @@ const roomSchema = new mongoose.Schema(
     floor: { type: Number, required: true },
     capacity: { type: Number, required: true, min: 1 },
 
-    // For now store student IDs as strings (you can change to ObjectId later)
-    assignedStudents: { type: [String], default: [] },
-
-    status: {
-      type: String,
-      enum: ["Available", "Partially Occupied", "Occupied"],
-      default: "Available",
-    },
+    assignedStudents: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Student",
+    }],
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+// ✅ FIXED Virtual (safe version)
+roomSchema.virtual("status").get(function () {
+  const assigned = this.assignedStudents || [];   // ← safety check
+  const count = assigned.length;
+
+  if (count === 0) return "Available";
+  if (count >= this.capacity) return "Occupied";
+  return "Partially Occupied";
+});
 
 module.exports = mongoose.model("Room", roomSchema);

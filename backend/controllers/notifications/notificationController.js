@@ -1,6 +1,5 @@
 const Notification = require("../../models/notifications/Notification");
 const Student = require("../../models/student/Student");
-const { addOneMonth } = require("../../utils/payment/paymentUtils");
 
 // ====================== GET ALL NOTIFICATIONS ======================
 // ====================== GET ALL NOTIFICATIONS ======================
@@ -170,54 +169,43 @@ const deleteNotification = async (req, res) => {
 };
 
 // ====================== GENERATE DUE & OVERDUE NOTIFICATIONS (1 Document per Student) ======================
-// ====================== GENERATE DUE & OVERDUE NOTIFICATIONS ======================
 const generateDueNotifications = async () => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Get all active students
+    // Get students with due or overdue payments
     const students = await Student.find({
       status: "active",
       isDeleted: false,
+      nextDueDate: { $lte: today },
     }).populate("room", "roomNumber");
 
     if (students.length === 0) {
-      console.log("✅ No active students found");
+      console.log("✅ No due/overdue students found");
       return 0;
     }
 
     let createdCount = 0;
 
     for (const student of students) {
-      let dueDate;
-
-      if (student.nextDueDate) {
-        dueDate = new Date(student.nextDueDate);
-      } else {
-        // New student - calculate expected due date from admissionDate
-        if (!student.admissionDate) continue; // skip if no admission date
-        dueDate = addOneMonth(new Date(student.admissionDate));
-      }
-
-      if (dueDate > today) continue; // not due yet
-
-      const isOverdue = dueDate < today;
+      const isOverdue = new Date(student.nextDueDate) < today;
 
       const title = isOverdue ? "Payment Overdue ⚠️" : "Payment Due Today";
       const message = isOverdue
-        ? `${student.fullName} has an overdue payment (Due: ${dueDate.toLocaleDateString("en-GB")})`
+        ? `${student.fullName} has an overdue payment (Due: ${new Date(student.nextDueDate).toLocaleDateString("en-GB")})`
         : `${student.fullName}'s rent is due today`;
 
-      // Check if notification for this student already exists today
+      // Check if a notification for this student already exists today
       const existing = await Notification.findOne({
         relatedStudent: student._id,
         createdAt: { $gte: today },
       });
 
       if (!existing) {
+        // Create ONE notification per student (visible to all admins)
         await createNotification(
-          null,                    // visible to all admins
+          null,                                // user = null → visible to everyone
           title,
           message,
           isOverdue ? "overdue" : "payment_due",
@@ -228,7 +216,7 @@ const generateDueNotifications = async () => {
       }
     }
 
-    console.log(`✅ Cron Job: Created ${createdCount} due/overdue notifications`);
+    console.log(`✅ Cron Job: Created ${createdCount} due/overdue notifications (1 per student)`);
     return createdCount;
   } catch (error) {
     console.error("Generate Due Notifications Error:", error);

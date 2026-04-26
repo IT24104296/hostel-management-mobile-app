@@ -38,13 +38,13 @@ app.use("/api/expenses", expenseRoutes);
 
 
 
-cron.schedule("06 11 * * *", async () => {
+cron.schedule("58 15 * * *", async () => {
   console.log(" Running daily pending payment check...");
   await generatePendingPayments();
 });
 
 
-cron.schedule("06 11 * * *", async () => {
+cron.schedule("58 15 * * *", async () => {
   console.log(" Running daily due/overdue notification job...");
   await generateDueNotifications();
 }, {

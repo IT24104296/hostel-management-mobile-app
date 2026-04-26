@@ -35,7 +35,7 @@ export default function ReportList({ navigation }) {
 
     try {
       const res = await api.get("/api/financial/report");
-      setReports(res || res.data || []);
+      setReports(res.data || []);
     } catch (err) {
       console.error("Report list fetch error:", err);
       setError("Failed to load saved reports. Please check your connection.");

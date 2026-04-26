@@ -108,46 +108,38 @@ export default function ContractListScreen({ navigation }) {
 
     return (
       <View style={styles.card}>
-        {/* Status Badge */}
-        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
+  {/* Status Badge */}
+  <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+    <Text style={styles.statusText}>{item.status}</Text>
+  </View>
 
-        {/* Student Name */}
-        <Text style={styles.cardName}>{item.name}</Text>
+  {/* Student Name */}
+  <Text style={styles.cardName}>{item.name}</Text>
 
-        {/* Room & ID */}
-        <Text style={styles.cardInfo}>
-          {item.room} • {item.studentId}
-        </Text>
+  {/* Room & ID */}
+  <Text style={styles.cardInfo}>
+    {item.room} • {item.studentId}
+  </Text>
 
-        {/* Contact */}
-        <Text style={styles.cardContact}>{item.contactNumber}</Text>
+  {/* Contact */}
+  <Text style={styles.cardContact}>{item.contactNumber}</Text>
 
-        {/* Dates */}
-        <Text style={styles.dateRange}>
-          {item.startDate} — {item.endDate}
-        </Text>
+  {/* Dates */}
+  <Text style={styles.dateRange}>
+    {item.startDate} — {item.endDate}
+  </Text>
 
-        {/* Action Buttons */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => editContract(item)}
-          >
-            <MaterialIcons name="edit" size={22} color="#0F766E" />
-            <Text style={styles.editText}>Edit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => deleteContract(item)}
-          >
-            <MaterialIcons name="delete" size={22} color="#EF4444" />
-            <Text style={styles.deleteText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+  {/* Action Buttons - Only Delete remains */}
+  <View style={styles.actionRow}>
+    <TouchableOpacity
+      style={styles.deleteButton}
+      onPress={() => deleteContract(item)}
+    >
+      <MaterialIcons name="delete" size={22} color="#EF4444" />
+      <Text style={styles.deleteText}>Delete</Text>
+    </TouchableOpacity>
+  </View>
+</View>
     );
   };
 

@@ -18,8 +18,6 @@ const validateContract = ({
   // STUDENT ID
   if (!studentId) {
     errors.studentId = "ID required";
-  } else if (!/^HS\d{6}$/.test(studentId)) {
-    errors.studentId = "Invalid ID";
   }
 
   // CONTACT

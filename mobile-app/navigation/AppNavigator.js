@@ -6,6 +6,7 @@ import PaymentListScreen from "../screens/PaymentListScreen";
 import PaymentDetailsScreen from "../screens/PaymentDetailsScreen";
 import NewPaymentScreen from "../screens/NewPaymentScreen";
 import ReceiptScreen from "../screens/ReceiptScreen";
+import NotificationScreen from "../screens/NotificationScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -20,6 +21,10 @@ export default function AppNavigator() {
         <Stack.Screen name="PaymentDetails" component={PaymentDetailsScreen} />
         <Stack.Screen name="NewPayment" component={NewPaymentScreen} />
         <Stack.Screen name="Receipt" component={ReceiptScreen} />
+        <Stack.Screen
+          name="Notifications"
+          component={NotificationScreen}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

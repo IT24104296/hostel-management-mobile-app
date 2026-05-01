@@ -6,3 +6,4 @@ mobile-app/node_modules
 backend/.env
 
 .expo
+node_modules

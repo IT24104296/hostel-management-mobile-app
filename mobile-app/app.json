@@ -15,6 +15,11 @@
       "supportsTablet": true
     },
     "android": {
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "MANAGE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -22,6 +27,15 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       }
     },
+    "plugins": [
+      [
+        "expo-file-system",
+        {
+          "photosPermission": "Allow access to save PDF reports."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     },

@@ -15,7 +15,7 @@
 //  expenseRoutes.js — each route calls one function here
 // ═══════════════════════════════════════════════════════════════════
 
-const Expense = require("../models/expense");
+const Expense = require("../../models/reports/expense");
 
 const buildDateRange = (start, end) => {
   const startDate = new Date(start);

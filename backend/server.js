@@ -31,11 +31,11 @@ app.get("/", (req, res) => {
 });
 
 // ── Routes — all registered BEFORE app.listen() ──────────────────
-const financialRoutes = require("./routes/financialRoutes");
+const financialRoutes = require("./routes/reports/financialRoutes");
 app.use("/api/financial", financialRoutes);
 
 // ✅ NEW: Expense routes registered here
-const expenseRoutes = require("./routes/expenseRoutes");
+const expenseRoutes = require("./routes/reports/expenseRoutes");
 app.use("/api/expenses", expenseRoutes);
 
 // ── Start Server ──────────────────────────────────────────────────

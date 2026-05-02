@@ -14,13 +14,13 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 // Existing screens
-import FinancialScreen from "./screens/financial";
-import ReportScreen    from "./screens/report";
-import ReportList      from "./screens/ReportList";
+import FinancialScreen from "./screens/reports/financial";
+import ReportScreen    from "./screens/reports/report";
+import ReportList      from "./screens/reports/ReportList";
 
 // ✅ NEW: Expense screens
-import ExpenseList from "./screens/ExpenseList";
-import ExpenseForm from "./screens/ExpenseForm";
+import ExpenseList from "./screens/reports/ExpenseList";
+import ExpenseForm from "./screens/reports/ExpenseForm";
 
 const Stack = createNativeStackNavigator();
 

@@ -12,9 +12,9 @@
 //    4. Saves both new fields into the FinancialReport document
 // ═══════════════════════════════════════════════════════════════════
 
-const Payment       = require("../models/Payment");
-const FinancialReport = require("../models/FinancialReport");
-const Expense       = require("../models/expense"); // ✅ NEW import
+const Payment       = require("../../models/reports/Payment");
+const FinancialReport = require("../../models/reports/FinancialReport");
+const Expense       = require("../../models/reports/expense"); // ✅ NEW import
 
 const buildDateRange = (start, end) => {
   const startDate = new Date(start);

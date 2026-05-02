@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const financialController = require("../controllers/financialController");
+const financialController = require("../../controllers/reports/financialController");
 
 // Existing routes
 router.get("/summary", financialController.getFinancialSummary);

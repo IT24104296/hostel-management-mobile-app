@@ -18,7 +18,7 @@
 const express = require("express");
 const router  = express.Router();
 
-const expenseController = require("../controllers/expenseController");
+const expenseController = require("../../controllers/reports/expenseController");
 
 // Create a new expense
 router.post("/", expenseController.createExpense);

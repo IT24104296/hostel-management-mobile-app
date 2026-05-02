@@ -12,7 +12,7 @@
 //    4. Saves both new fields into the FinancialReport document
 // ═══════════════════════════════════════════════════════════════════
 
-const Payment       = require("../../models/reports/Payment");
+const Payment       = require("../../models/payment/payment");
 const FinancialReport = require("../../models/reports/FinancialReport");
 const Expense       = require("../../models/reports/expense"); // ✅ NEW import
 
@@ -30,9 +30,7 @@ const buildPaymentDateQuery = (start, end) => {
   const range = buildDateRange(start, end);
   return {
     $or: [
-      { paymentDate: range }, // current schema
-      { paidDate: range },    // Atlas data schema
-      { dueDate: range },     // Atlas data schema
+           // Atlas data schema
       { createdAt: range },   // fallback
     ],
   };

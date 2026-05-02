@@ -10,7 +10,9 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  Image,                    // ← NEW
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";   // ← NEW
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -31,10 +33,8 @@ export default function EditStudentScreen({ navigation, route }) {
   const [parentName, setParentName] = useState("");
   const [parentPhone, setParentPhone] = useState("");
 
-  // ==================== NEW PAYMENT FIELDS ====================
   const [monthlyRent, setMonthlyRent] = useState("");
   const [keyMoneyAmount, setKeyMoneyAmount] = useState("");
-  // ===========================================================
 
   const [status, setStatus] = useState("active");
   const [admissionDate, setAdmissionDate] = useState(null);
@@ -49,6 +49,11 @@ export default function EditStudentScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const [errors, setErrors] = useState({});
 
+  // ==================== IMAGE STATES ====================
+  const [currentImageUrl, setCurrentImageUrl] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
+  // =====================================================
+
   const formatDate = (date) => {
     if (!date) return "Select date";
     const d = new Date(date);
@@ -59,15 +64,31 @@ export default function EditStudentScreen({ navigation, route }) {
   };
 
   const normalizeStatus = (value) => {
-    return String(value || "active").toLowerCase() === "inactive"
-      ? "inactive"
-      : "active";
+    return String(value || "active").toLowerCase() === "inactive" ? "inactive" : "active";
   };
+
+  // ==================== PICK IMAGE ====================
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedImage(result.assets[0]);
+      }
+    } catch (error) {
+      console.log("Image picker error:", error);
+      Alert.alert("Error", "Failed to open gallery.");
+    }
+  };
+  // ====================================================
 
   const fetchStudent = async () => {
     try {
       setLoading(true);
-
       const res = await api.get(`/api/students/${studentId}`);
       const student = res.data?.student || res.data;
 
@@ -88,11 +109,11 @@ export default function EditStudentScreen({ navigation, route }) {
       setStatus(normalizeStatus(student.status));
       setAdmissionDate(student.admissionDate ? new Date(student.admissionDate) : null);
       setLeavingDate(student.leavingDate ? new Date(student.leavingDate) : null);
-
-      // ==================== NEW FIELDS ====================
       setMonthlyRent(student.monthlyRent ? student.monthlyRent.toString() : "");
       setKeyMoneyAmount(student.keyMoneyAmount ? student.keyMoneyAmount.toString() : "");
-      // ===================================================
+
+      // Save current image URL
+      setCurrentImageUrl(student.imageUrl || "");
     } catch (error) {
       console.log("Fetch student error:", error?.response?.data || error.message);
       Alert.alert("Error", "Failed to load student details.");
@@ -111,7 +132,7 @@ export default function EditStudentScreen({ navigation, route }) {
     fetchStudent();
   }, [studentId]);
 
-  const validate = () => {
+    const validate = () => {
     const formData = {
       fullName,
       nic,
@@ -124,8 +145,8 @@ export default function EditStudentScreen({ navigation, route }) {
       status,
       admissionDate,
       leavingDate,
-      monthlyRent,      // ← NEW
-      keyMoneyAmount,   // ← NEW
+      monthlyRent,
+      keyMoneyAmount,
     };
 
     const validationErrors = validateStudentForm(formData);
@@ -140,29 +161,44 @@ export default function EditStudentScreen({ navigation, route }) {
     return true;
   };
 
-  const handleUpdate = async () => {
+      const handleUpdate = async () => {
     if (!validate()) return;
 
     try {
       setSaving(true);
 
-      const payload = {
-        fullName: fullName.trim(),
-        nic: nic.trim(),
-        phone: phone.trim(),
-        whatsapp: whatsapp.trim(),
-        address: address.trim(),
-        university: university.trim(),
-        parentName: parentName.trim(),
-        parentPhone: parentPhone.trim(),
-        status,
-        admissionDate,
-        leavingDate,
-        monthlyRent: Number(monthlyRent),       // ← NEW
-        keyMoneyAmount: Number(keyMoneyAmount), // ← NEW
-      };
+      const formData = new FormData();
 
-      await api.put(`/api/students/${studentId}`, payload);
+      // Append all text fields (exactly like AddStudentScreen)
+      formData.append("fullName", fullName.trim());
+      formData.append("nic", nic.trim());
+      formData.append("phone", phone.trim());
+      formData.append("whatsapp", whatsapp.trim());
+      formData.append("address", address.trim());
+      formData.append("university", university.trim());
+      formData.append("parentName", parentName.trim());
+      formData.append("parentPhone", parentPhone.trim());
+      formData.append("status", status);
+      formData.append("admissionDate", admissionDate ? admissionDate.toISOString() : "");
+      if (leavingDate) formData.append("leavingDate", leavingDate.toISOString());
+      formData.append("monthlyRent", monthlyRent);
+      formData.append("keyMoneyAmount", keyMoneyAmount);
+
+      // Append new image ONLY if user selected one
+      if (selectedImage) {
+        formData.append("image", {
+          uri: selectedImage.uri,
+          type: selectedImage.mimeType || "image/jpeg",
+          name: selectedImage.fileName || `student_edit_${Date.now()}.jpg`,
+        });
+      }
+
+      // ←←← THIS IS THE IMPORTANT PART (matches your working AddStudentScreen)
+      await api.put(`/api/students/${studentId}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       Alert.alert("Success", "Student updated successfully.");
       navigation.goBack();
@@ -185,19 +221,37 @@ export default function EditStudentScreen({ navigation, route }) {
 
   return (
     <LinearGradient colors={["#F4FBF8", "#BFE5DB"]} style={[styles.container, { paddingTop: insets.top + 10 }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.topBtn}>
             <Ionicons name="arrow-back" size={24} color="#5A5A5A" />
           </TouchableOpacity>
-          <View style={{ width: 24 }} />
         </View>
 
         <Text style={styles.screenTitle}>Edit Student Details</Text>
 
+        {/* ==================== IMAGE SECTION ==================== */}
+        <View style={styles.imageCard}>
+          <TouchableOpacity onPress={pickImage} style={styles.imageContainer}>
+            {selectedImage ? (
+              <Image source={{ uri: selectedImage.uri }} style={styles.profileImage} />
+            ) : currentImageUrl ? (
+              <Image source={{ uri: currentImageUrl }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.placeholderContainer}>
+                <Ionicons name="camera-outline" size={50} color="#58A895" />
+                <Text style={styles.placeholderText}>Add Profile Photo</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {(selectedImage || currentImageUrl) && (
+            <TouchableOpacity onPress={pickImage} style={styles.changePhotoBtn}>
+              <Text style={styles.changePhotoText}>Change Photo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         {/* Personal Information */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Personal information</Text>
@@ -736,6 +790,43 @@ errorText: {
 inputError: {
   borderColor: "#D64545",
 },
+imageCard: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  imageContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#58A895",
+    overflow: "hidden",
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  placeholderContainer: {
+    alignItems: "center",
+  },
+  placeholderText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#58A895",
+    fontWeight: "600",
+  },
+  changePhotoBtn: {
+    marginTop: 10,
+  },
+  changePhotoText: {
+    color: "#58A895",
+    fontWeight: "700",
+    fontSize: 15,
+  },
 });
 
 

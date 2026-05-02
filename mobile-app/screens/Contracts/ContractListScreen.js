@@ -71,6 +71,8 @@ export default function ContractListScreen({ navigation }) {
           endDate: new Date(item.endDate).toDateString(),
           status,
           contactNumber: item.contactNumber,
+          durationMonths: item.durationMonths, // ← this was missing!
+          endDate: item.endDate,
         };
       });
 
@@ -129,16 +131,25 @@ export default function ContractListScreen({ navigation }) {
     {item.startDate} — {item.endDate}
   </Text>
 
-  {/* Action Buttons - Only Delete remains */}
   <View style={styles.actionRow}>
-    <TouchableOpacity
-      style={styles.deleteButton}
-      onPress={() => deleteContract(item)}
-    >
-      <MaterialIcons name="delete" size={22} color="#EF4444" />
-      <Text style={styles.deleteText}>Delete</Text>
-    </TouchableOpacity>
-  </View>
+  {/* Edit Button - Compact */}
+  <TouchableOpacity
+    style={styles.editButton}
+    onPress={() => editContract(item)}
+  >
+    <MaterialIcons name="edit" size={18} color="#10B981" />
+    <Text style={styles.editText}>Edit</Text>
+  </TouchableOpacity>
+
+  {/* Delete Button - Compact */}
+  <TouchableOpacity
+    style={styles.deleteButton}
+    onPress={() => deleteContract(item)}
+  >
+    <MaterialIcons name="delete" size={18} color="#EF4444" />
+    <Text style={styles.deleteText}>Delete</Text>
+  </TouchableOpacity>
+</View>
 </View>
     );
   };
@@ -382,27 +393,43 @@ const styles = StyleSheet.create({
 
   // 🔹 Actions (icons cleaner)
   actionRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-  },
+  flexDirection: "row",
+  justifyContent: "space-between",
+  marginTop: 12,
+  gap: 8,                    // smaller gap between buttons
+},
+editButton: {
+  flex: 1,
+  backgroundColor: "#E6F2EF",
+  paddingVertical: 8,        // reduced vertical padding
+  paddingHorizontal: 12,     // reduced horizontal padding
+  borderRadius: 8,
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "center",
+},
 
-  editButton: {
-    marginRight: 16,
-  },
+editText: {
+  color: "#10B981",
+  fontWeight: "600",
+  fontSize: 13,              // smaller text
+  marginLeft: 6,
+},
 
-  editText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#2E8B7D",
-  },
-
-  deleteButton: {},
+deleteButton: {
+  flex: 1,
+  backgroundColor: "#FEE2E2",
+  padding: 10,
+  borderRadius: 8,
+  alignItems: "center",
+},
 
   deleteText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#EF4444",
-  },
+  color: "#EF4444",
+  fontWeight: "600",
+  fontSize: 13,
+  marginLeft: 6,
+},
 
   // 🔹 Floating Button (match app FAB)
  fab: {

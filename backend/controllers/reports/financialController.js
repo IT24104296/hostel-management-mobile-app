@@ -30,9 +30,7 @@ const buildPaymentDateQuery = (start, end) => {
   const range = buildDateRange(start, end);
   return {
     $or: [
-      { paymentDate: range }, // current schema
-      { paidDate: range },    // Atlas data schema
-      { dueDate: range },     // Atlas data schema
+          // Atlas data schema
       { createdAt: range },   // fallback
     ],
   };

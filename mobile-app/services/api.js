@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { navigationRef } from '../App';
 
 
-export const API_BASE_URL = "http://172.23.65.193:5000";
+export const API_BASE_URL = "http://192.168.1.3:5000";
 
 
 const api = axios.create({

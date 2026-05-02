@@ -67,15 +67,18 @@ export default function HomeScreen({ navigation }) {
 
     const available = totalRooms - occupied;
 
-    // Pending Payments - Direct calculation (most reliable)
+    // Pending Payments - Only for students with status "active"
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
     const pendingPayments = students.filter(student => {
+      // Only consider active students
+      if (student.status !== 'active') return false;
+      
       if (!student.nextDueDate) return false;
+      
       const dueDate = new Date(student.nextDueDate);
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate <= today;
+      
+      return dueDate < today;
     }).length;
 
     return {
@@ -194,9 +197,9 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate("Payments")}
           />
           <QuickCard
-            title="Reminders & Alerts"
+            title="Complaints & Maintenance"
             img={require("../../assets/dashboard/NotificationsIcon.png")}
-            onPress={() => navigation.navigate("NotificationScreen")}
+            onPress={() => navigation.navigate("Complaints")}
           />
           <QuickCard
             title="Financial Reporting"

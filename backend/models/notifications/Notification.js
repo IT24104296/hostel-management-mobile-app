@@ -38,6 +38,10 @@ const notificationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    dueDate: {                   
+      type: Date,
+      required: false,
+    },
   },
   { timestamps: true }
 );

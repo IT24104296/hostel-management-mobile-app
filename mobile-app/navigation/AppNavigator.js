@@ -20,6 +20,10 @@ import RoomListScreen from "../screens/room/RoomListScreen";
 import EditRoomScreen from "../screens/room/EditRoomScreen";
 import PaymentDashboardScreen from "../screens/payment/PaymentDashboardScreen";
 import StudentPaymentDetailScreen from "../screens/payment/StudentPaymentDetailScreen";
+import ComplaintListScreen from "../screens/complaint/ComplaintsListScreen";
+import AddComplaintScreen from "../screens/complaint/AddComplaintScreen";
+import EditComplaintScreen from "../screens/complaint/EditComplaintScreen";
+import ComplaintDetailScreen from "../screens/complaint/ComplaintDetailScreen";
 
 import ContractListScreen from "../screens/Contracts/ContractListScreen";
 import AddContractScreen from "../screens/Contracts/AddContractScreen";
@@ -33,6 +37,7 @@ import ReportScreen    from "../screens/reports/report";
 import ReportList      from "../screens/reports/ReportList";
 import ExpenseList from "../screens/reports/ExpenseList";
 import ExpenseForm from "../screens/reports/ExpenseForm";
+import EditContractScreen from "../screens/Contracts/EditContractScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -75,13 +80,17 @@ export default function AppNavigator() {
           <Stack.Screen name="StudentPaymentDetail" component={StudentPaymentDetailScreen} />
           <Stack.Screen name="Contracts" component={ContractListScreen} />
         <Stack.Screen name="AddContract" component={AddContractScreen} />
+        <Stack.Screen name="EditContract" component={EditContractScreen} />
         <Stack.Screen name="ExpiringContracts" component={ExpiringContractsScreen} />
         <Stack.Screen name="ContractHistory" component={ContractHistoryScreen} />
         <Stack.Screen name="PaymentReceipt" component={PaymentReceiptScreen} />
         <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
         <Stack.Screen name="Financial" component={FinancialScreen}/>
         <Stack.Screen name="Report" component={ReportScreen} options={{ title: "Detailed Report" }} />
-
+        <Stack.Screen name="Complaints" component={ComplaintListScreen} />
+        <Stack.Screen name="AddComplaint" component={AddComplaintScreen} />
+        <Stack.Screen name="EditComplaint" component={EditComplaintScreen} />
+        <Stack.Screen name="ComplaintDetail" component={ComplaintDetailScreen} />
         <Stack.Screen name="Reports" component={ReportList}/>
           <Stack.Screen name="Expenses" component={ExpenseList}/>
         <Stack.Screen  name="ExpenseForm"  component={ExpenseForm}

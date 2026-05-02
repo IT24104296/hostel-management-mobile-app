@@ -9,6 +9,7 @@ const contractRoutes = require("./routes/contract/contractRoutes");
 const notificationRoutes = require("./routes/notifications/notificationsRoutes");
 const financialRoutes = require("./routes/reports/financialRoutes");
 const expenseRoutes = require("./routes/reports/expenseRoutes");
+const complaintRoutes = require("./routes/complaint/ComplaintRoutes");
 
 const cron = require("node-cron");
 
@@ -33,18 +34,18 @@ app.use("/api/contracts", contractRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/financial", financialRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/complaints", complaintRoutes);
 
 
 
 
-
-cron.schedule("58 15 * * *", async () => {
+cron.schedule("21 13 * * *", async () => {
   console.log(" Running daily pending payment check...");
   await generatePendingPayments();
 });
 
 
-cron.schedule("58 15 * * *", async () => {
+cron.schedule("21 13 * * *", async () => {
   console.log(" Running daily due/overdue notification job...");
   await generateDueNotifications();
 }, {

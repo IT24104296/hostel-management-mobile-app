@@ -86,7 +86,42 @@ exports.getContracts = async (req, res) => {
   }
 };
 
+// ==============================
+//  UPDATE CONTRACT
+// ==============================
+exports.updateContract = async (req, res) => {
+  const { id } = req.params;
+  const { studentName, studentId, contactNumber, roomNumber, moveInDate, durationMonths } = req.body;
 
+  try {
+    const moveIn = new Date(moveInDate);
+    const endDate = new Date(moveIn);
+    endDate.setMonth(endDate.getMonth() + parseInt(durationMonths));
+
+    const updatedContract = await Contract.findByIdAndUpdate(
+      id,
+      {
+        studentName,
+        studentId,
+        contactNumber,
+        roomNumber,
+        moveInDate,
+        durationMonths: Number(durationMonths),
+        endDate
+      },
+      { new: true }
+    );
+
+    if (!updatedContract) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+
+    res.json({ message: "Contract updated successfully", contract: updatedContract });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Error updating contract" });
+  }
+};
 // ==============================
 //  DELETE CONTRACT
 // ==============================

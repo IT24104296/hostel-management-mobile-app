@@ -27,6 +27,7 @@ const isValidSriLankanNIC = (nic) => {
 
 /*  Register Student */
 const createStudent = async (req, res) => {
+
   try {
     const {
       fullName,
@@ -40,8 +41,8 @@ const createStudent = async (req, res) => {
       status,
       admissionDate,
       leavingDate,
-      monthlyRent,      // ← NEW
-      keyMoneyAmount,   // ← NEW
+      monthlyRent,
+      keyMoneyAmount,
     } = req.body;
 
     if (!fullName || !nic || !phone || !parentName || !parentPhone || !address || !admissionDate) {
@@ -50,13 +51,7 @@ const createStudent = async (req, res) => {
       });
     }
 
-    // New field validations
-    if (!monthlyRent || typeof monthlyRent !== "number" || monthlyRent <= 0) {
-      return res.status(400).json({ message: "Monthly rent is required and must be greater than 0" });
-    }
-    if (!keyMoneyAmount || typeof keyMoneyAmount !== "number" || keyMoneyAmount <= 0) {
-      return res.status(400).json({ message: "Key money amount is required and must be greater than 0" });
-    }
+   
 
     const existingNic = await Student.findOne({ nic });
     if (existingNic) {
@@ -95,6 +90,10 @@ const createStudent = async (req, res) => {
       return res.status(400).json({ message: "Leaving date cannot be before admission date" });
     }
 
+    // ====================== IMAGE UPLOAD HANDLING ======================
+   const imageUrl = req.file ? req.file.path : "";
+    // ==================================================================
+
     const studentId = await generateStudentId();
 
     const student = await Student.create({
@@ -110,9 +109,9 @@ const createStudent = async (req, res) => {
       status: status || "active",
       admissionDate,
       leavingDate,
-      monthlyRent,       // ← NEW
-      keyMoneyAmount,    // ← NEW
-      // nextDueDate is intentionally NOT set here (will be set on first payment)
+      monthlyRent,
+      keyMoneyAmount,
+      imageUrl,                    // ← NEW
     });
 
     res.status(201).json({
@@ -164,8 +163,8 @@ exports.updateStudent = async (req, res) => {
     status,
     admissionDate,
     leavingDate,
-    monthlyRent,      // ← NEW
-    keyMoneyAmount,   // ← NEW
+    monthlyRent,
+    keyMoneyAmount,
   } = req.body;
 
   if (!fullName || fullName.trim().length < 3) {
@@ -200,32 +199,36 @@ exports.updateStudent = async (req, res) => {
     return res.status(400).json({ message: "Leaving date cannot be before admission date" });
   }
 
-  // Optional validation for new fields if they are being updated
-  if (monthlyRent !== undefined && (typeof monthlyRent !== "number" || monthlyRent <= 0)) {
-    return res.status(400).json({ message: "Monthly rent must be greater than 0" });
-  }
-  if (keyMoneyAmount !== undefined && (typeof keyMoneyAmount !== "number" || keyMoneyAmount <= 0)) {
-    return res.status(400).json({ message: "Key money amount must be greater than 0" });
-  }
+  
+  // ====================== IMAGE UPLOAD HANDLING (Update) ======================
+  const imageUrl = req.file ? req.file.path : undefined;
+  // ============================================================================
 
   try {
+    const updateData = {
+      fullName,
+      nic,
+      phone,
+      whatsapp,
+      address,
+      university,
+      parentName,
+      parentPhone,
+      status,
+      admissionDate,
+      leavingDate,
+      monthlyRent,
+      keyMoneyAmount,
+    };
+
+    // Only add imageUrl if a new image was uploaded
+    if (imageUrl !== undefined) {
+      updateData.imageUrl = imageUrl;
+    }
+
     const updated = await Student.findByIdAndUpdate(
       req.params.id,
-      {
-        fullName,
-        nic,
-        phone,
-        whatsapp,
-        address,
-        university,
-        parentName,
-        parentPhone,
-        status,
-        admissionDate,
-        leavingDate,
-        monthlyRent,
-        keyMoneyAmount,
-      },
+      updateData,
       { new: true, runValidators: true }
     );
 

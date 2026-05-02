@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Image,
+  Modal                    // ← NEW
 } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,6 +24,7 @@ export default function StudentProfileScreen({ navigation, route }) {
 
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showFullImage, setShowFullImage] = useState(false);
 
   const fetchStudent = async () => {
     try {
@@ -172,11 +175,23 @@ export default function StudentProfileScreen({ navigation, route }) {
 
         <Text style={styles.screenTitle}>Student Profile</Text>
 
-        {/* Summary card */}
         <View style={styles.summaryCard}>
-          <View style={styles.avatarWrap}>
-            <Text style={styles.avatarEmoji}>👨‍🎓</Text>
-          </View>
+          <TouchableOpacity 
+            onPress={() => student?.imageUrl && setShowFullImage(true)}
+            activeOpacity={0.9}
+          >
+            <View style={styles.avatarWrap}>
+              {student?.imageUrl ? (
+                <Image
+                  source={{ uri: student.imageUrl }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.avatarEmoji}>👨‍🎓</Text>
+              )}
+            </View>
+          </TouchableOpacity>
 
           <View style={styles.summaryTextWrap}>
             <Text style={styles.studentName}>{student?.fullName || "Unnamed Student"}</Text>
@@ -202,7 +217,7 @@ export default function StudentProfileScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Personal Information */}
+        {/* Rest of your code remains exactly the same */}
         <InfoCard title="Personal Information">
           <RowItem label="Name" value={student?.fullName} />
           <RowItem label="Student ID" value={student?.studentId} />
@@ -245,7 +260,6 @@ export default function StudentProfileScreen({ navigation, route }) {
           />
         </InfoCard>
 
-        {/* Student Status */}
         <InfoCard title="Student Status">
           <RowItem label="Admission Date" value={formatDate(student?.admissionDate)} />
           <RowItem label="Leaving Date" value={formatDate(student?.leavingDate)} />
@@ -258,7 +272,6 @@ export default function StudentProfileScreen({ navigation, route }) {
           />
         </InfoCard>
 
-        {/* ==================== NEW PAYMENT INFORMATION CARD ==================== */}
         <InfoCard title="Payment Information">
           <RowItem
             label="Monthly Rent"
@@ -278,9 +291,7 @@ export default function StudentProfileScreen({ navigation, route }) {
             valueStyle={{ fontWeight: "700", color: student?.nextDueDate ? "#2C7C68" : "#D64545" }}
           />
         </InfoCard>
-        {/* ==================================================================== */}
 
-        {/* Edit button */}
         <TouchableOpacity
           style={styles.editBtn}
           activeOpacity={0.85}
@@ -291,12 +302,32 @@ export default function StudentProfileScreen({ navigation, route }) {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+      <Modal
+        visible={showFullImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFullImage(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalClose} onPress={() => setShowFullImage(false)}>
+            <Ionicons name="close-circle" size={40} color="#fff" />
+          </TouchableOpacity>
+
+          {student?.imageUrl && (
+            <Image
+              source={{ uri: student.imageUrl }}
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  // ==================== ALL YOUR ORIGINAL STYLES (UNCHANGED) ====================
+  // ==================== ALL YOUR ORIGINAL STYLES + NEW IMAGE STYLE ====================
   container: {
     flex: 1,
     paddingHorizontal: 10,
@@ -342,17 +373,44 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 18,
   },
+
   avatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#fff",
     justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
+    borderWidth: 3,
+    borderColor: "#58A895",
+    overflow: "hidden",
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   avatarEmoji: {
-    fontSize: 30,
+    fontSize: 45,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalClose: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 10,
+  },
+  fullImage: {
+    width: "100%",
+    height: "80%",
+  },
+
   summaryTextWrap: {
     flex: 1,
   },
@@ -389,6 +447,7 @@ const styles = StyleSheet.create({
     color: "#C14D42",
   },
 
+  // ... rest of your styles (unchanged) ...
   infoCard: {
     backgroundColor: "#F9F9F9",
     borderRadius: 14,

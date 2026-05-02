@@ -125,26 +125,27 @@ const markAllAsRead = async (req, res) => {
 
 // ====================== CREATE NOTIFICATION (Internal Use) ======================
 // ====================== CREATE NOTIFICATION ======================
-const createNotification = async (userId, title, message, type, relatedStudent = null, relatedPayment = null) => {
+// ====================== CREATE NOTIFICATION ======================
+// ====================== CREATE NOTIFICATION ======================
+const createNotification = async (userId, title, message, type, relatedStudent = null, relatedPayment = null, dueDate = null) => {
   try {
     const notification = await Notification.create({
-      user: userId,           // null = visible to all admins
+      user: userId,
       title,
       message,
       type,
       relatedStudent,
       relatedPayment,
+      dueDate: dueDate ? new Date(dueDate.setHours(0, 0, 0, 0)) : null,   // Normalize
     });
 
-    console.log(`✅ Notification created: ${title} (for student: ${relatedStudent || 'system'})`);
+    console.log(`✅ Notification created: ${title}`);
     return notification;
-
   } catch (error) {
     console.error("Create Notification Error:", error);
     return null;
   }
 };
-
 // ====================== DELETE NOTIFICATION ======================
 const deleteNotification = async (req, res) => {
   try {
@@ -168,24 +169,24 @@ const deleteNotification = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-// ====================== GENERATE DUE & OVERDUE NOTIFICATIONS (1 Document per Student) ======================
 // ====================== GENERATE DUE & OVERDUE NOTIFICATIONS ======================
+// ====================== GENERATE DUE & OVERDUE NOTIFICATIONS ======================
+// ====================== GENERATE DUE & OVERDUE NOTIFICATIONS (Final Recommended) ======================
+// ====================== GENERATE DUE & OVERDUE NOTIFICATIONS (Fixed & Clean) ======================
+// ====================== GENERATE DUE & OVERDUE NOTIFICATIONS (Final Anti-Duplicate) ======================
 const generateDueNotifications = async () => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Get all active students
+    console.log(`🔄 Starting due/overdue notification job at ${today.toISOString()}`);
+
     const students = await Student.find({
       status: "active",
       isDeleted: false,
     }).populate("room", "roomNumber");
 
-    if (students.length === 0) {
-      console.log("✅ No active students found");
-      return 0;
-    }
+    console.log(`📊 Found ${students.length} active students`);
 
     let createdCount = 0;
 
@@ -194,13 +195,19 @@ const generateDueNotifications = async () => {
 
       if (student.nextDueDate) {
         dueDate = new Date(student.nextDueDate);
-      } else {
-        // New student - calculate expected due date from admissionDate
-        if (!student.admissionDate) continue; // skip if no admission date
+      } else if (student.admissionDate) {
         dueDate = addOneMonth(new Date(student.admissionDate));
+      } else {
+        continue;
       }
 
-      if (dueDate > today) continue; // not due yet
+      // Normalize to start of day for accurate comparison
+      dueDate.setHours(0, 0, 0, 0);
+
+      if (dueDate > today) {
+        console.log(`   → ${student.fullName}: not due yet`);
+        continue;
+      }
 
       const isOverdue = dueDate < today;
 
@@ -209,26 +216,31 @@ const generateDueNotifications = async () => {
         ? `${student.fullName} has an overdue payment (Due: ${dueDate.toLocaleDateString("en-GB")})`
         : `${student.fullName}'s rent is due today`;
 
-      // Check if notification for this student already exists today
+      // Strict check per billing period
       const existing = await Notification.findOne({
         relatedStudent: student._id,
-        createdAt: { $gte: today },
+        type: { $in: [ "overdue"] },
+        dueDate: dueDate,                    // Exact match on normalized date
       });
 
       if (!existing) {
         await createNotification(
-          null,                    // visible to all admins
+          null,
           title,
           message,
           isOverdue ? "overdue" : "payment_due",
           student._id,
-          null
+          null,
+          dueDate
         );
         createdCount++;
+        console.log(`   ✅ Created ${isOverdue ? "Overdue" : "Due Today"} for ${student.fullName}`);
+      } else {
+        console.log(`   ⏭️ Skipped (already notified for this billing period)`);
       }
     }
 
-    console.log(`✅ Cron Job: Created ${createdCount} due/overdue notifications`);
+    console.log(`✅ Cron Job Completed: Created ${createdCount} due/overdue notifications`);
     return createdCount;
   } catch (error) {
     console.error("Generate Due Notifications Error:", error);

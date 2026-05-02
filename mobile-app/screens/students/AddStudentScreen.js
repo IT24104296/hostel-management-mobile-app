@@ -10,14 +10,15 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  Image,                    // ← NEW
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";   // ← NEW
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import axios from "axios";
-import { validateStudentForm } from "../../utils/studentValidation";
-
 import api from "../../services/api";
+
+import { validateStudentForm } from "../../utils/studentValidation";
 
 export default function AddStudentScreen({ navigation }) {
   const [fullName, setFullName] = useState("");
@@ -30,10 +31,9 @@ export default function AddStudentScreen({ navigation }) {
   const [parentName, setParentName] = useState("");
   const [parentPhone, setParentPhone] = useState("");
 
-  // ==================== NEW PAYMENT FIELDS ====================
+  // Payment fields
   const [monthlyRent, setMonthlyRent] = useState("");
   const [keyMoneyAmount, setKeyMoneyAmount] = useState("");
-  // ===========================================================
 
   const [status, setStatus] = useState("active");
   const [admissionDate, setAdmissionDate] = useState(null);
@@ -43,9 +43,13 @@ export default function AddStudentScreen({ navigation }) {
   const [showLeavingPicker, setShowLeavingPicker] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // ==================== NEW - IMAGE STATE ====================
+  const [selectedImage, setSelectedImage] = useState(null);
+  // ===========================================================
 
   const insets = useSafeAreaInsets();
-  const [errors, setErrors] = useState({});
 
   const formatDate = (date) => {
     if (!date) return "Select date";
@@ -55,6 +59,38 @@ export default function AddStudentScreen({ navigation }) {
     const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
+
+  // ==================== NEW - PICK IMAGE FUNCTION ====================
+// ==================== NEW - PICK IMAGE FUNCTION (Fixed) ====================
+// ==================== FIXED & DEBUGGABLE PICK IMAGE FUNCTION ====================
+// ==================== FIXED PICK IMAGE FUNCTION ====================
+// ==================== WORKING PICK IMAGE FUNCTION ====================
+const pickImage = async () => {
+  console.log("📸 pickImage function called!");
+
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,   // ← This worked for you
+      allowsEditing: false,                              // ← Important: Disable crop screen
+      quality: 0.8,
+    });
+
+    console.log("Image picker result:", result);
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setSelectedImage(result.assets[0]);
+      console.log("✅ Image selected successfully");
+    }
+  } catch (error) {
+    console.log("❌ Error in pickImage:", error);
+    Alert.alert("Error", "Failed to open gallery. Please try again.");
+  }
+};
+// =================================================================
+// =================================================================
+// =================================================================
+// =================================================================
+  // =================================================================
 
   const validate = () => {
     const formData = {
@@ -69,8 +105,8 @@ export default function AddStudentScreen({ navigation }) {
       status,
       admissionDate,
       leavingDate,
-      monthlyRent,      // ← NEW
-      keyMoneyAmount,   // ← NEW
+      monthlyRent,
+      keyMoneyAmount,
     };
 
     const validationErrors = validateStudentForm(formData);
@@ -81,61 +117,101 @@ export default function AddStudentScreen({ navigation }) {
       Alert.alert("Error", firstError);
       return false;
     }
-
     return true;
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
+  if (!validate()) return;
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const payload = {
-        fullName: fullName.trim(),
-        nic: nic.trim(),
-        phone: phone.trim(),
-        whatsapp: whatsapp.trim(),
-        address: address.trim(),
-        university: university.trim(),
-        parentName: parentName.trim(),
-        parentPhone: parentPhone.trim(),
-        status,
-        admissionDate,
-        leavingDate,
-        monthlyRent: Number(monthlyRent),       // ← NEW
-        keyMoneyAmount: Number(keyMoneyAmount), // ← NEW
-      };
+    const formData = new FormData();
 
-      await api.post("/api/students", payload);
+    // Append all text fields
+    formData.append("fullName", fullName.trim());
+    formData.append("nic", nic.trim());
+    formData.append("phone", phone.trim());
+    formData.append("whatsapp", whatsapp.trim());
+    formData.append("address", address.trim());
+    formData.append("university", university.trim());
+    formData.append("parentName", parentName.trim());
+    formData.append("parentPhone", parentPhone.trim());
+    formData.append("status", status);
+    formData.append("admissionDate", admissionDate ? admissionDate.toISOString() : "");
+    if (leavingDate) formData.append("leavingDate", leavingDate.toISOString());
+    formData.append("monthlyRent", monthlyRent);
+    formData.append("keyMoneyAmount", keyMoneyAmount);
 
-      Alert.alert("Success", "Student added successfully.");
-      navigation.goBack();
-    } catch (error) {
-      console.log("Add student error:", error?.response?.data || error.message);
-      const msg =
-        error?.response?.data?.message || "Failed to add student.";
-      Alert.alert("Error", msg);
-    } finally {
-      setLoading(false);
+    // Append image if selected
+    if (selectedImage) {
+      formData.append("image", {
+        uri: selectedImage.uri,
+        type: selectedImage.mimeType || "image/jpeg",
+        name: selectedImage.fileName || `student_${Date.now()}.jpg`,
+      });
     }
-  };
+
+    // Send using your existing api service
+    const response = await api.post("/api/students", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    Alert.alert("Success", "Student added successfully. ");
+    navigation.goBack();
+  } catch (error) {
+    console.log("Add student error:", error?.response?.data || error.message);
+    const msg = error?.response?.data?.message || "Failed to add student.";
+    Alert.alert("Error", msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <LinearGradient colors={["#F4FBF8", "#BFE5DB"]} style={[styles.container, { paddingTop: insets.top + 10 }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
         {/* Top Row */}
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.topBtn}>
             <Ionicons name="arrow-back" size={24} color="#5A5A5A" />
           </TouchableOpacity>
-          <View style={{ width: 24 }} />
         </View>
 
         <Text style={styles.screenTitle}>Add Student</Text>
+
+        {/* ==================== IMAGE UPLOAD SECTION ==================== */}
+{/* ==================== IMAGE UPLOAD SECTION ==================== */}
+<View style={styles.imageCard}>
+  <TouchableOpacity 
+    onPress={pickImage} 
+    style={styles.imageContainer}
+    activeOpacity={0.7}
+  >
+    {selectedImage ? (
+      <Image 
+        source={{ uri: selectedImage.uri }} 
+        style={styles.profileImage} 
+      />
+    ) : (
+      <View style={styles.placeholderContainer}>
+        <Ionicons name="camera-outline" size={50} color="#58A895" />
+        <Text style={styles.placeholderText}>Add Profile Photo</Text>
+      </View>
+    )}
+  </TouchableOpacity>
+
+  {selectedImage && (
+    <TouchableOpacity onPress={pickImage} style={styles.changePhotoBtn}>
+      <Text style={styles.changePhotoText}>Change Photo</Text>
+    </TouchableOpacity>
+  )}
+</View>
+{/* =========================================================== */}
+{/* =========================================================== */}
 
         {/* Personal Information */}
         <View style={styles.card}>
@@ -675,6 +751,43 @@ errorText: {
 },
 inputError: {
   borderColor: "#D64545",
+},
+imageCard: {
+  alignItems: "center",
+  marginBottom: 20,
+},
+imageContainer: {
+  width: 140,
+  height: 140,
+  borderRadius: 70,
+  backgroundColor: "#fff",
+  justifyContent: "center",
+  alignItems: "center",
+  borderWidth: 3,
+  borderColor: "#58A895",
+  overflow: "hidden",
+},
+profileImage: {
+  width: "100%",
+  height: "100%",
+  resizeMode: "cover",
+},
+placeholderContainer: {
+  alignItems: "center",
+},
+placeholderText: {
+  marginTop: 8,
+  fontSize: 14,
+  color: "#58A895",
+  fontWeight: "600",
+},
+changePhotoBtn: {
+  marginTop: 10,
+},
+changePhotoText: {
+  color: "#58A895",
+  fontWeight: "700",
+  fontSize: 15,
 },
 
 });

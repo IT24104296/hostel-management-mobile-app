@@ -82,6 +82,11 @@ const studentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    imageUrl: {
+      type: String,
+      default: '',
+      required: false
+},
   },
   { timestamps: true }
 );

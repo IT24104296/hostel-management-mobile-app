@@ -1,4 +1,18 @@
+node_modules
+# dependencies
 node_modules/
+
+# expo
+.expo/
+.expo-shared/
+
+# build
+dist/
+build/
+
+# environment
+.env
+node_modules
 backend/node_modules
 mobile-app/node_modules
 
@@ -6,4 +20,3 @@ mobile-app/node_modules
 backend/.env
 
 .expo
-node_modules

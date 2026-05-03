@@ -25,6 +25,10 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Hostel Management Backend Running");
 });
+// Health check route (for UptimeRobot + Render)
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);

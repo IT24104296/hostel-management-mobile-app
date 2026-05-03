@@ -1,24 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-//  mobile-app/screens/ExpenseForm.js  —  NEW FILE
-//
-//  PURPOSE:
-//  Single screen that handles BOTH adding a new expense AND editing
-//  an existing one. The mode is determined by route.params:
-//    • No params  → Add mode  (blank form, POST request)
-//    • expense passed in params → Edit mode (pre-filled form, PUT request)
-//
-//  FIELDS:
-//  Title       — text input (required)
-//  Category    — picker with 7 options (required)
-//  Amount      — numeric input (required)
-//  Date        — date picker (defaults to today)
-//  Description — optional text input for notes
-//
-//  NAVIGATION:
-//  On success → goes back to ExpenseList screen
-//  Cancel button → goes back without saving
-// ═══════════════════════════════════════════════════════════════════
-
 import React, { useState } from "react";
 import {
   View,
@@ -32,8 +11,13 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// The 7 expense categories matching the backend enum in Expense.js
+import api from "../../services/api";
+
+// Expense categories (matching your backend enum)
 const CATEGORIES = [
   "Electricity",
   "Water",
@@ -45,29 +29,26 @@ const CATEGORIES = [
 ];
 
 export default function ExpenseForm({ route, navigation }) {
+  const insets = useSafeAreaInsets();
 
-  // ── Determine mode: Add or Edit ───────────────────────────────
-  // If an expense object was passed via navigation, we are in Edit mode.
-  // Otherwise we are in Add mode with a blank form.
+  // Determine Add or Edit mode
   const existingExpense = route.params?.expense || null;
-  const isEditMode      = existingExpense !== null;
+  const isEditMode = existingExpense !== null;
 
-  // ── Form state — pre-filled if editing ───────────────────────
-  const [title,       setTitle]       = useState(existingExpense?.title       || "");
-  const [category,    setCategory]    = useState(existingExpense?.category    || "Electricity");
-  const [amount,      setAmount]      = useState(existingExpense?.amount?.toString() || "");
+  // Form state
+  const [title, setTitle] = useState(existingExpense?.title || "");
+  const [category, setCategory] = useState(existingExpense?.category || "Electricity");
+  const [amount, setAmount] = useState(existingExpense?.amount?.toString() || "");
   const [description, setDescription] = useState(existingExpense?.description || "");
 
-  // Date state — parse existing date or default to today
-  const [date,     setDate]     = useState(
+  const [date, setDate] = useState(
     existingExpense?.date ? new Date(existingExpense.date) : new Date()
   );
   const [showDate, setShowDate] = useState(false);
 
-  // Saving state — disables button while request is in progress
   const [saving, setSaving] = useState(false);
 
-  // ── Validation ────────────────────────────────────────────────
+  // Validation
   const validate = () => {
     if (!title.trim()) {
       Alert.alert("Validation Error", "Please enter a title.");
@@ -80,174 +61,157 @@ export default function ExpenseForm({ route, navigation }) {
     return true;
   };
 
-  // ── Submit handler ────────────────────────────────────────────
-  // Calls POST for Add mode, PUT for Edit mode
+  // Submit handler
   const handleSubmit = async () => {
     if (!validate()) return;
 
     setSaving(true);
 
     try {
-      // Build the request body
       const body = {
-        title:       title.trim(),
+        title: title.trim(),
         category,
-        amount:      parseFloat(amount),
-        date:        date.toISOString().split("T")[0],
+        amount: parseFloat(amount),
+        date: date.toISOString().split("T")[0],
         description: description.trim(),
       };
 
-      // Decide URL and method based on mode
-      const url    = isEditMode
-        ? `http://10.0.2.2:5000/api/expenses/${existingExpense._id}`
-        : "http://10.0.2.2:5000/api/expenses";
-
-      const method = isEditMode ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Something went wrong.");
+      if (isEditMode) {
+        await api.put(`/api/expenses/${existingExpense._id}`, body);
+        Alert.alert("Success", "Expense updated successfully.", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        await api.post("/api/expenses", body);
+        Alert.alert("Success", "Expense added successfully.", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
       }
-
-      setSaving(false);
-
-      Alert.alert(
-        "Success",
-        isEditMode ? "Expense updated successfully." : "Expense added successfully.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
-
     } catch (error) {
-      setSaving(false);
       console.error("Submit error:", error);
-      Alert.alert("Error", error.message || "Failed to save expense.");
+      const msg = error.response?.data?.message || "Failed to save expense.";
+      Alert.alert("Error", msg);
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-
-      {/* ── SCREEN TITLE ────────────────────────────────────────── */}
-      <Text style={styles.title}>
-        {isEditMode ? "Edit Expense" : "Add Expense"}
-      </Text>
-
-      {/* ── TITLE FIELD ─────────────────────────────────────────── */}
-      <Text style={styles.label}>Title *</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="e.g. March Electricity Bill"
-        value={title}
-        onChangeText={setTitle}
-        maxLength={100}
-      />
-
-      {/* ── CATEGORY PICKER ─────────────────────────────────────── */}
-      <Text style={styles.label}>Category *</Text>
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={category}
-          onValueChange={(val) => setCategory(val)}
-          style={styles.picker}
-        >
-          {CATEGORIES.map((cat) => (
-            <Picker.Item key={cat} label={cat} value={cat} />
-          ))}
-        </Picker>
+    <LinearGradient
+      colors={["#F4FBF8", "#BFE5DB"]}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={26} color="#111" />
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>
+          {isEditMode ? "Edit Expense" : "Add Expense"}
+        </Text>
       </View>
 
-      {/* ── AMOUNT FIELD ────────────────────────────────────────── */}
-      <Text style={styles.label}>Amount (Rs) *</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="e.g. 4500"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="numeric"
-      />
-
-      {/* ── DATE PICKER ─────────────────────────────────────────── */}
-      <Text style={styles.label}>Date</Text>
-      <TouchableOpacity
-        style={styles.dateButton}
-        onPress={() => setShowDate(true)}
-      >
-        <Text style={styles.dateButtonText}>
-          {date.toLocaleDateString()}
-        </Text>
-      </TouchableOpacity>
-
-      {showDate && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowDate(false);
-            if (selectedDate) setDate(selectedDate);
-          }}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Title */}
+        <Text style={styles.label}>Title *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. March Electricity Bill"
+          value={title}
+          onChangeText={setTitle}
+          maxLength={100}
         />
-      )}
 
-      {/* ── DESCRIPTION FIELD ───────────────────────────────────── */}
-      <Text style={styles.label}>Description (optional)</Text>
-      <TextInput
-        style={[styles.input, styles.textArea]}
-        placeholder="Any additional notes..."
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        numberOfLines={3}
-        maxLength={300}
-      />
+        {/* Category */}
+        <Text style={styles.label}>Category *</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={category}
+            onValueChange={(val) => setCategory(val)}
+            style={styles.picker}
+          >
+            {CATEGORIES.map((cat) => (
+              <Picker.Item key={cat} label={cat} value={cat} />
+            ))}
+          </Picker>
+        </View>
 
-      {/* ── SUBMIT BUTTON ───────────────────────────────────────── */}
-      <TouchableOpacity
-        style={[styles.submitButton, saving && styles.buttonDisabled]}
-        onPress={handleSubmit}
-        disabled={saving}
-      >
-        {saving
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.submitButtonText}>
+        {/* Amount */}
+        <Text style={styles.label}>Amount (Rs) *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 4500"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="numeric"
+        />
+
+        {/* Date */}
+        <Text style={styles.label}>Date</Text>
+        <TouchableOpacity style={styles.dateButton} onPress={() => setShowDate(true)}>
+          <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
+        </TouchableOpacity>
+
+        {showDate && (
+          <DateTimePicker
+            value={date}
+            mode="date"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowDate(false);
+              if (selectedDate) setDate(selectedDate);
+            }}
+          />
+        )}
+
+        {/* Description */}
+        <Text style={styles.label}>Description (optional)</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Any additional notes..."
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={3}
+          maxLength={300}
+        />
+
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[styles.submitButton, saving && styles.buttonDisabled]}
+          onPress={handleSubmit}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>
               {isEditMode ? "Update Expense" : "Add Expense"}
             </Text>
-        }
-      </TouchableOpacity>
+          )}
+        </TouchableOpacity>
 
-      {/* ── CANCEL BUTTON ───────────────────────────────────────── */}
-      <TouchableOpacity
-        style={styles.cancelButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.cancelButtonText}>Cancel</Text>
-      </TouchableOpacity>
-
-    </ScrollView>
+        {/* Cancel Button */}
+        <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 100 },
 
-  container: {
-    padding: 20,
-    backgroundColor: "#F5F6FA",
-    flexGrow: 1,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 24,
-  },
+  backBtn: { padding: 6, marginRight: 12 },
+  screenTitle: { fontSize: 24, fontWeight: "700", color: "#111" },
 
   label: {
     fontSize: 14,
@@ -326,5 +290,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-
 });

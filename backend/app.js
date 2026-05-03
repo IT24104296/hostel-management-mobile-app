@@ -39,13 +39,13 @@ app.use("/api/complaints", complaintRoutes);
 
 
 
-cron.schedule("21 13 * * *", async () => {
+cron.schedule("30 06 * * *", async () => {
   console.log(" Running daily pending payment check...");
   await generatePendingPayments();
 });
 
 
-cron.schedule("21 13 * * *", async () => {
+cron.schedule("30 06 * * *", async () => {
   console.log(" Running daily due/overdue notification job...");
   await generateDueNotifications();
 }, {

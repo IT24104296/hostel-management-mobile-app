@@ -1,22 +1,4 @@
-// ─────────────────────────────────────────────────────────────────
-//  screens/ReportList.js  —  CORRECTED
-//
-//  BUG FIXED: Raw ISO date strings displayed to user
-//  Previously: <Text>From: {item.startDate}</Text>
-//  This showed ugly strings like "2026-03-01T00:00:00.000Z"
-//  because MongoDB returns dates as ISO 8601 strings.
-//  FIX: Wrap with new Date(...).toLocaleDateString() to get
-//  a clean readable format e.g. "3/1/2026".
-//
-//  IMPROVEMENT ADDED: Loading state + error handling
-//  Previously, if the API was down the list would be silently
-//  empty with no feedback. Added:
-//    • loading spinner while fetching reports
-//    • error message if fetch fails
-//    • empty state message if no reports exist yet
-// ─────────────────────────────────────────────────────────────────
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -24,137 +6,130 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,   // ✅ ADDED: for loading spinner
+  ActivityIndicator,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import api from "../../services/api";
 
 export default function ReportList({ navigation }) {
+  const insets = useSafeAreaInsets();
 
   const [reports, setReports] = useState([]);
-
-  // ✅ ADDED: loading and error states
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
+  // Fetch reports every time screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchReports();
+    }, [])
+  );
 
-  // ✅ ADDED: extracted into a named function so it can be reused
-  //           (e.g. called again after a delete to refresh the list)
-  const fetchReports = () => {
+  const fetchReports = async () => {
     setLoading(true);
     setError(null);
 
-    fetch("http://10.0.2.2:5000/api/financial/report")
-      .then(res => res.json())
-      .then(data => {
-        setReports(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.log(err);
-        setError("Failed to load reports. Check your connection.");
-        setLoading(false);
-      });
+    try {
+      const res = await api.get("/api/financial/report");
+      setReports(res.data || []);
+    } catch (err) {
+      console.error("Report list fetch error:", err);
+      setError("Failed to load saved reports. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ── Delete report ─────────────────────────────────────────────
   const deleteReport = (id) => {
     Alert.alert(
       "Delete Report",
       "Are you sure you want to delete this report?",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            fetch(`http://10.0.2.2:5000/api/financial/report/${id}`, {
-              method: "DELETE",
-            })
-              .then(() => {
-                // Remove from local state immediately (no need to re-fetch)
-                setReports(reports.filter(r => r._id !== id));
-              })
-              .catch(err => {
-                console.log(err);
-                Alert.alert("Error", "Failed to delete report.");
-              });
+          onPress: async () => {
+            try {
+              await api.delete(`/api/financial/report/${id}`);
+              // Remove from local state
+              setReports(reports.filter((r) => r._id !== id));
+            } catch (err) {
+              console.error(err);
+              Alert.alert("Error", "Failed to delete report.");
+            }
           },
         },
       ]
     );
   };
 
-  // ── Loading state ─────────────────────────────────────────────
-  // ✅ ADDED: show spinner while fetching
+  // Loading state
   if (loading) {
     return (
-      <View style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-        <Text style={styles.loadingText}>Loading reports...</Text>
-      </View>
+      <LinearGradient colors={["#F4FBF8", "#BFE5DB"]} style={styles.container}>
+        <ActivityIndicator size="large" color="#58A895" style={{ flex: 1 }} />
+      </LinearGradient>
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────
-  // ✅ ADDED: show error with a retry button
+  // Error state
   if (error) {
     return (
-      <View style={styles.centeredContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={fetchReports}>
-          <Text style={styles.retryBtnText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient colors={["#F4FBF8", "#BFE5DB"]} style={styles.container}>
+        <View style={styles.centeredContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchReports}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Saved Reports</Text>
+    <LinearGradient
+      colors={["#F4FBF8", "#BFE5DB"]}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={26} color="#111" />
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>Saved Reports</Text>
+      </View>
 
-      {/* ── EMPTY STATE ──────────────────────────────────────── */}
-      {/* ✅ ADDED: friendly message when no reports exist yet */}
+      {/* Empty State */}
       {reports.length === 0 && (
-        <View style={styles.centeredContainer}>
-          <Text style={styles.emptyText}>No reports generated yet.</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No reports generated yet</Text>
           <Text style={styles.emptySubText}>
-            Go to Financial Summary and tap "Generate Report".
+            Go to Financial Summary and tap "Generate Report"
           </Text>
         </View>
       )}
 
+      {/* Reports List */}
       <FlatList
         data={reports}
         keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.listContainer}
         renderItem={({ item }) => (
           <View style={styles.card}>
-
-            {/* ── DATE RANGE ────────────────────────────────── */}
-            {/*
-              BUG THAT WAS HERE (now fixed):
-              <Text>From: {item.startDate}</Text>
-              <Text>To:   {item.endDate}</Text>
-
-              This displayed raw ISO strings like:
-                "From: 2026-03-01T00:00:00.000Z"
-
-              FIX: Parse and format with toLocaleDateString()
-              Now displays:
-                "From: 3/1/2026"
-            */}
+            {/* Date Range */}
             <Text style={styles.dateText}>
-              From: {new Date(item.startDate).toLocaleDateString()}  {/* ✅ FIXED */}
+              From: {new Date(item.startDate).toLocaleDateString()}
             </Text>
             <Text style={styles.dateText}>
-              To:   {new Date(item.endDate).toLocaleDateString()}    {/* ✅ FIXED */}
+              To: {new Date(item.endDate).toLocaleDateString()}
             </Text>
 
-            {/* ── AMOUNTS ───────────────────────────────────── */}
+            {/* Amounts */}
             <View style={styles.amountRow}>
               <View style={[styles.amountBox, styles.totalBox]}>
                 <Text style={styles.amountLabel}>Total</Text>
@@ -170,7 +145,7 @@ export default function ReportList({ navigation }) {
               </View>
             </View>
 
-            {/* ── BUTTONS ───────────────────────────────────── */}
+            {/* Action Buttons */}
             <View style={styles.btnRow}>
               <TouchableOpacity
                 style={styles.viewBtn}
@@ -186,81 +161,36 @@ export default function ReportList({ navigation }) {
                 <Text style={styles.btnText}>Delete</Text>
               </TouchableOpacity>
             </View>
-
           </View>
         )}
       />
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
 
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: "#F5F6FA",
-  },
-
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 20,
-    color: "#333",
-  },
-
-  // ✅ ADDED styles
-  centeredContainer: {
-    flex: 1,
-    justifyContent: "center",
+  header: {
+    flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-  },
-
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: "#777",
-  },
-
-  errorText: {
-    fontSize: 14,
-    color: "#C62828",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-
-  retryBtn: {
-    backgroundColor: "#2E7D32",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 8,
   },
+  backBtn: { padding: 6, marginRight: 12 },
+  screenTitle: { fontSize: 24, fontWeight: "700", color: "#111" },
 
-  retryBtnText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-
-  emptyText: {
-    fontSize: 16,
-    color: "#555",
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-
-  emptySubText: {
-    fontSize: 13,
-    color: "#888",
-    textAlign: "center",
-  },
+  listContainer: { paddingBottom: 100, paddingHorizontal: 16 },
 
   card: {
     backgroundColor: "#fff",
-    padding: 15,
+    padding: 16,
     marginBottom: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
 
   dateText: {
@@ -273,59 +203,73 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 12,
-    marginBottom: 4,
+    marginBottom: 8,
   },
 
   amountBox: {
     width: "31%",
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
   },
 
-  totalBox:     { backgroundColor: "#E8F5E9" },
+  totalBox: { backgroundColor: "#E8F5E9" },
   collectedBox: { backgroundColor: "#E3F2FD" },
-  pendingBox:   { backgroundColor: "#FFF3E0" },
+  pendingBox: { backgroundColor: "#FFF3E0" },
 
-  amountLabel: {
-    fontSize: 11,
-    color: "#777",
-    marginBottom: 4,
-  },
-
-  amountValue: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#333",
-  },
+  amountLabel: { fontSize: 11, color: "#777", marginBottom: 4 },
+  amountValue: { fontSize: 14, fontWeight: "bold", color: "#333" },
 
   btnRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
     gap: 10,
+    marginTop: 12,
   },
 
   viewBtn: {
     flex: 1,
     backgroundColor: "#2E7D32",
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 10,
     alignItems: "center",
   },
 
   deleteBtn: {
     flex: 1,
     backgroundColor: "#C62828",
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 10,
     alignItems: "center",
   },
 
-  btnText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
+  btnText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+
+  // Empty & Error states
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  emptyText: { fontSize: 17, color: "#555", fontWeight: "bold", marginBottom: 8 },
+  emptySubText: { fontSize: 14, color: "#888", textAlign: "center" },
+
+  centeredContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
 
+  errorText: { color: "#C62828", fontSize: 16, textAlign: "center", marginBottom: 16 },
+
+  retryBtn: {
+    backgroundColor: "#2E7D32",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+
+  retryBtnText: { color: "#fff", fontWeight: "bold" },
 });

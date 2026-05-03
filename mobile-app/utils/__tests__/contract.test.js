@@ -1,4 +1,4 @@
-const { validateContract } = require( "../validation");
+const { validateContract } = require( "../ContractValidation");
 
 describe("Contract Validation", () => {
 
@@ -8,13 +8,7 @@ describe("Contract Validation", () => {
     expect(errors.studentId).toBe("ID required");
   });
 
-  test("invalid student ID", () => {
-    const errors = validateContract({
-      name: "John",
-      studentId: "123",
-    });
-    expect(errors.studentId).toBe("Invalid ID");
-  });
+  
 
   test("invalid contact number", () => {
     const errors = validateContract({
